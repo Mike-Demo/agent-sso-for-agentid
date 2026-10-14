@@ -1,0 +1,82 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: Inter, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; background:#fff; }
+  .icon { position:relative; overflow:hidden; background:linear-gradient(135deg,#232348 0%,#3b3a8f 55%,#5a4fd0 100%); }
+  .icon .ring { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; }
+  /* banner */
+  .banner { position:relative; overflow:hidden; background:linear-gradient(100deg,#1d1d40 0%,#34337e 52%,#574fd2 100%); color:#fff; }
+  .banner .glow { position:absolute; border-radius:50%; filter:blur(10px); opacity:.5; background:radial-gradient(circle,#8f86ff 0%,rgba(143,134,255,0) 70%); }
+  .banner .content { position:absolute; inset:0; display:flex; align-items:center; }
+  .banner h1 { font-weight:800; letter-spacing:-0.5px; }
+  .banner p { opacity:.92; font-weight:500; }
+  .pill { display:inline-flex; align-items:center; gap:.45em; background:#fff; color:#232348; font-weight:700; border-radius:.5em; box-shadow:0 4px 14px rgba(0,0,0,.35); }
+  .badge { background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.35); border-radius:999px; font-weight:600; }
+</style></head>
+<body>
+
+<!-- ICON 256 -->
+<div class="icon" id="icon256" style="width:256px;height:256px;border-radius:52px;">
+  <div class="ring">
+    <svg width="168" height="168" viewBox="0 0 100 100" fill="none">
+      <circle cx="50" cy="37" r="16.5" fill="#fff"/>
+      <path d="M18 86c3.5-16.5 16-25 32-25s28.5 8.5 32 25" fill="#fff"/>
+      <circle cx="74" cy="70" r="10.5" fill="#f5b942"/>
+      <circle cx="74" cy="70" r="4.6" fill="#3b3a8f"/>
+      <rect x="71.8" y="76" width="4.4" height="9" rx="2.2" fill="#f5b942"/>
+    </svg>
+  </div>
+</div>
+
+<!-- ICON 128 -->
+<div class="icon" id="icon128" style="width:128px;height:128px;border-radius:26px;margin-top:20px;">
+  <div class="ring">
+    <svg width="84" height="84" viewBox="0 0 100 100" fill="none">
+      <circle cx="50" cy="37" r="16.5" fill="#fff"/>
+      <path d="M18 86c3.5-16.5 16-25 32-25s28.5 8.5 32 25" fill="#fff"/>
+      <circle cx="74" cy="70" r="10.5" fill="#f5b942"/>
+      <circle cx="74" cy="70" r="4.6" fill="#3b3a8f"/>
+      <rect x="71.8" y="76" width="4.4" height="9" rx="2.2" fill="#f5b942"/>
+    </svg>
+  </div>
+</div>
+
+<!-- BANNER BUILDER (JS clones at both sizes) -->
+<div id="bannerHost"></div>
+
+<script>
+  function banner(id, W, H, s) {
+    const el = document.createElement('div');
+    el.className = 'banner'; el.id = id;
+    el.style.width = W + 'px'; el.style.height = H + 'px';
+    el.innerHTML = `
+      <div class="glow" style="width:${340*s}px;height:${340*s}px;right:${-90*s}px;top:${-120*s}px;"></div>
+      <div class="glow" style="width:${220*s}px;height:${220*s}px;right:${210*s}px;bottom:${-140*s}px;opacity:.3;"></div>
+      <div class="content" style="padding:0 ${44*s}px;gap:${30*s}px;">
+        <div style="flex:0 0 auto;">
+          <svg width="${118*s}" height="${118*s}" viewBox="0 0 100 100" fill="none">
+            <circle cx="50" cy="37" r="16.5" fill="#fff"/>
+            <path d="M18 86c3.5-16.5 16-25 32-25s28.5 8.5 32 25" fill="#fff"/>
+            <circle cx="74" cy="70" r="10.5" fill="#f5b942"/>
+            <circle cx="74" cy="70" r="4.6" fill="#2c2c6e"/>
+            <rect x="71.8" y="76" width="4.4" height="9" rx="2.2" fill="#f5b942"/>
+          </svg>
+        </div>
+        <div style="min-width:0;">
+          <div class="badge" style="display:inline-block;font-size:${12.5*s}px;padding:${4*s}px ${11*s}px;margin-bottom:${10*s}px;">FOR WORDPRESS &amp; WOOCOMMERCE</div>
+          <h1 style="font-size:${37*s}px;line-height:1.08;">Agentic Agent SSO</h1>
+          <p style="font-size:${16.5*s}px;margin-top:${8*s}px;">Let verified AI agents sign in with AgentID — as themselves, with a human owner on record. No shared passwords.</p>
+          <div style="margin-top:${14*s}px;">
+            <span class="pill" style="font-size:${14.5*s}px;padding:${8*s}px ${15*s}px;">
+              <svg width="${15*s}" height="${15*s}" viewBox="0 0 100 100" fill="none"><circle cx="42" cy="42" r="24" fill="none" stroke="#3b3a8f" stroke-width="11"/><rect x="58" y="58" width="11" height="30" rx="5.5" fill="#3b3a8f" transform="rotate(-45 63 73)"/></svg>
+              Sign in with AgentID
+            </span>
+          </div>
+        </div>
+      </div>`;
+    document.getElementById('bannerHost').appendChild(el);
+  }
+  banner('banner772', 772, 250, 1);
+  banner('banner1544', 1544, 500, 2);
+</script>
+</body></html>

@@ -52,6 +52,14 @@ Agentic Agent SSO is an independent, open-source community project. It is **not*
 4. Copy the Client ID (and Client Secret, if your application has one) into Settings → Agentic Agent SSO and save.
 5. Click "Test connection to AgentID". Then sign out and try the "Sign in with AgentID" button.
 
+== Screenshots ==
+
+1. Settings → Agentic Agent SSO: the setup wizard walks through creating your AgentID application, registering the redirect URI, and testing the connection.
+2. "Sign in with AgentID" on the WordPress login form. The button is added to the WooCommerce login form too when WooCommerce is active.
+3. Link an agent to your account from your profile. The agent still gets its own account — it never signs in as you.
+4. An agent account in the admin: its AgentID identity and human owner on record. Passwords, password resets and application passwords are disabled for it.
+5. The AgentID Login Button block in the editor, ready to place on any page. Also available as the [agentid_login] shortcode.
+
 == Frequently Asked Questions ==
 
 = Is AgentID free? =
