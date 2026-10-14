@@ -37,26 +37,68 @@ blueprint in `tests/playground-blueprint.json`):
       response_type, client_id, redirect_uri, scopes (incl. owner
       scopes), state, nonce, and PKCE S256 challenge. AgentID answered
       403 for the dummy client ID, as expected.
-- [ ] **Full sign-in with a real app** (the one remaining leg): register
-      a real AgentID application with redirect URI
-      `http://127.0.0.1:9400/wp-admin/admin-post.php?action=agentid_callback`
-      (the Playground URL; whether AgentID accepts a loopback http
-      redirect URI is itself part of the test), put its client ID/secret
-      in the plugin settings, and complete a sign-in as a real agent.
-      Also still to exercise live: WooCommerce login, owner link, and
-      each guard (password sign-in refused, admin demotion, session
-      length).
+- [x] **Full sign-in with a real app — VERIFIED LIVE 2026-10-14.**
+      A dedicated test app ("Agent SSO WP Plugin Playground Test") was
+      created in the owner's AgentID organization and its real client
+      ID/secret configured in the Playground site. A real agent
+      (mikedemo.jobsearch@agentmail.to) completed the full flow —
+      authorize, AgentMail inbox authorization via API, consent,
+      callback, token exchange, ES256 ID-token verification — and was
+      provisioned just-in-time in WordPress: role **Subscriber**,
+      display name "Job Search (agent of Mike Demopoulos)", user meta
+      `agentid_sub`, `agentid_owner_sub`, `agentid_owner_email`
+      (mdemop@mikedemo.com), `agentid_owner_name`, `agentid_is_agent`,
+      `agentid_actor_type=agent`, `agentid_last_login`. The resulting
+      session opened the profile page as the agent.
+      **Password guard proven both ways**: a wrong password gets core's
+      generic error (the guard runs after core verification by design);
+      with a temporarily-known correct password the sign-in was refused
+      with the plugin's own message — "This is an agent account. It can
+      only sign in with AgentID." (The test account's password hash was
+      then reset to a fresh random value; no usable password exists.)
+      Findings from this leg:
+      * The AgentID **console accepts loopback redirect URIs**
+        (`http://127.0.0.1:9400/...` and `http://localhost:9400/...`
+        both registered fine), but AgentID's **edge (CloudFront/WAF)
+        blocks authorize requests whose redirect_uri host is a
+        loopback or private IP literal** (403 before the app ever
+        runs). Hostnames pass the edge; `localhost` passes too. Net:
+        agents cannot sign in to a site reached by IP literal —
+        a public hostname is required in practice.
+      * AgentID binds the authorization transaction to the browser
+        that started it (transaction cookie): replaying the
+        `/v0/authorize/continue` step from a different client is
+        refused ("Authorization transaction is forbidden"). The test
+        harness worked around the browser/loopback split by pointing
+        the site URL at a public echo page, capturing the callback
+        there, and replaying it locally with the flow cookie.
+      * Authorization codes are short-lived: a code replayed ~3.5
+        minutes after issue failed the token exchange
+        (`invalid_grant`); replay within about a minute succeeded.
+      * One callback attempt failed at ID-token verification because
+        the JWKS fetch from inside Playground was mangled by the test
+        VM's egress proxy (the same environment flakiness noted
+        elsewhere in this file). With the JWKS cache seeded, the
+        identical flow verified cleanly. The plugin failed closed in
+        the meantime, as designed.
+      Still to exercise live: WooCommerce login form, the owner link
+      flow end-to-end, admin demotion, and session length.
 - [ ] **AgentMail permission**: written OK from AgentMail to use the
       AgentID name in the plugin name/slug, or fall back to a purely
-      descriptive name before submitting.
-- [ ] **Exact legal URLs**: confirm AgentID's current Terms and Privacy
-      URLs and put them in readme.txt (it currently links agentid.com).
-- [ ] **Outside security review** of the auth flow before submission —
-      this is an identity plugin; a second pair of expert eyes is the
-      responsible bar (see the 2026 miniOrange SAML bypass for why).
-- [ ] **Plugin Check plugin** run on the test install (the official
-      WP.org pre-submission checker) and a screenshot set for the
-      .org listing.
+      descriptive name before submitting. (The only remaining
+      submission gate besides the .org listing assets.)
+- [x] **Exact legal URLs**: AgentID's Terms
+      (agentid.com/legal/terms) and Privacy Policy
+      (agentid.com/legal/privacy) verified live and linked in
+      readme.txt.
+- [x] **Outside security review**: GitHub Copilot full code review
+      commissioned and completed 2026-10-14 (issue #1 / PR #2):
+      0 Critical / 1 High / 5 Medium / 7 Low — all findings fixed in
+      v0.1.1 (see the v0.1.1 section below).
+- [x] **Plugin Check plugin** run on the test install: v2.1.0,
+      shipped file set 0 errors / 0 warnings (see the compliance
+      section below). A screenshot set for the .org listing is still
+      to be captured at submission time.
 
 WordPress.org submission compliance (checked 2026-10-14 against
 https://wordpress.org/plugins/developers/add/ and the guidelines it
@@ -90,8 +132,14 @@ binds — no submission made yet):
       action after an AgentID sign-in. Fixes re-verified by
       re-running the affected checks.
 - [ ] Still outstanding for submission: AgentMail's written OK to the
-      AgentID name/slug, and the Copilot full code review already
-      commissioned on GitHub issue #1.
+      AgentID name/slug (the Copilot full code review is complete and
+      its findings shipped in v0.1.1; the live end-to-end sign-in is
+      verified — see the Playground section above).
+- [x] **Aikido monitoring (2026-10-14)**: the repo is connected and
+      active in the owner's Aikido workspace (Free plan; an existing
+      repo was deactivated to free the slot). Manual "Start Scan" is
+      a paid-plan feature; on the Free plan scans run automatically
+      and on repo activity, so pushes double as scan triggers.
 
 v0.1.1 (2026-10-14) — fixes from the Copilot full review (GitHub
 issue #1 / PR #2), each verified after the change:
