@@ -129,3 +129,16 @@ the IIFE like the other packages.
   exchange (single-use even if the exchange fails), the browser-binding
   cookie is compared with `hash_equals()`, and a `kid` miss triggers exactly
   one forced JWKS refetch.
+
+## Disposition (2026-10-14, maintainer-approved)
+
+- **M1 — FIXED in v0.1.4.** The userinfo merge in `callback()` is now a
+  whitelist: `email`, `name`, `preferred_username`, `owner_sub`,
+  `owner_email`, `owner_name` merge only as strings, and `email_verified` /
+  `owner_email_verified` only as bool/string. Token-verified claims can no
+  longer be overwritten by userinfo.
+- **L2 — FIXED in v0.1.4.** `discovery()` guards the signing-algorithm list
+  with `is_array()` before `in_array()`; a malformed document now returns
+  the plugin's `WP_Error` instead of raising a `TypeError`.
+- **L1, L3, L4, L5 — backlog.** Recorded here; no release is blocked on
+  them (all fail closed or are cosmetic).

@@ -4,7 +4,7 @@ Tags: sso, oidc, openid-connect, ai-agents, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.3
+Stable tag: 0.1.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -103,6 +103,9 @@ Suggested privacy-policy text: "If you sign in with AgentID, we receive your age
 
 == Upgrade Notice ==
 
+= 0.1.4 =
+Hardening release: identity data from the userinfo endpoint is now merged through a type-checked whitelist so it can never override verified token claims, and a malformed discovery document fails cleanly instead of erroring. Recommended for all sites.
+
 = 0.1.3 =
 Quality fixes from an external review: sign-in now works on installs where the WordPress core path differs from the home path, credentials with special characters survive saving and token exchange, and agent accounts retained across an uninstall reconnect on their next sign-in. Recommended for all sites.
 
@@ -113,6 +116,10 @@ Renamed to Agentic Agent SSO. The Gutenberg block now loads correctly in the edi
 Security hardening release: unconditional denial of site-administration capability for agent accounts, stricter ID token validation, and multisite-safe uninstall.
 
 == Changelog ==
+
+= 0.1.4 =
+* Hardening: userinfo claims are merged into the verified identity through a whitelist of profile fields, each accepted only as the expected scalar type — userinfo can no longer overwrite verified token claims (subject, actor type, audience) or introduce non-scalar values into provisioning.
+* Fixed: a malformed discovery document (for example, a signing-algorithm list that is not an array) now fails with a clean connection error instead of a PHP error.
 
 = 0.1.3 =
 * Fixed: the sign-in flow cookie is now scoped to the host root. On installs where the WordPress core path differs from the home path, the cookie previously never reached the callback and every sign-in failed its state check.

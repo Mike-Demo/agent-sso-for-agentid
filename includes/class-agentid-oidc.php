@@ -60,7 +60,7 @@ class AgentID_OIDC {
 				return new WP_Error( 'agentid_discovery_endpoint', __( 'AgentID discovery returned an unexpected endpoint.', 'agentic-agent-sso' ) );
 			}
 		}
-		if ( empty( $data['id_token_signing_alg_values_supported'] ) || ! in_array( 'ES256', $data['id_token_signing_alg_values_supported'], true ) ) {
+		if ( empty( $data['id_token_signing_alg_values_supported'] ) || ! is_array( $data['id_token_signing_alg_values_supported'] ) || ! in_array( 'ES256', $data['id_token_signing_alg_values_supported'], true ) ) {
 			return new WP_Error( 'agentid_discovery_alg', __( 'AgentID discovery does not advertise ES256.', 'agentic-agent-sso' ) );
 		}
 		set_transient( 'agentid_sso_discovery', $data, self::DISCOVERY_TTL );

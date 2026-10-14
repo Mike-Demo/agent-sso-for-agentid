@@ -275,10 +275,23 @@ class AgentID_Auth {
 		}
 
 		// Enrich with userinfo when available; subject must agree.
+		// Merge through a whitelist with the same type discipline as
+		// the ID-token claims: userinfo may add profile fields, but
+		// it can never replace verified token claims (subject,
+		// actor_type, audience, ...) or smuggle in non-scalar values.
 		if ( ! empty( $tokens['access_token'] ) ) {
 			$userinfo = AgentID_OIDC::userinfo( $discovery, (string) $tokens['access_token'] );
-			if ( ! is_wp_error( $userinfo ) && $userinfo['sub'] === $claims['sub'] ) {
-				$claims = array_merge( $claims, $userinfo );
+			if ( ! is_wp_error( $userinfo ) && isset( $userinfo['sub'] ) && $userinfo['sub'] === $claims['sub'] ) {
+				foreach ( array( 'email', 'name', 'preferred_username', 'owner_sub', 'owner_email', 'owner_name' ) as $field ) {
+					if ( isset( $userinfo[ $field ] ) && is_string( $userinfo[ $field ] ) ) {
+						$claims[ $field ] = $userinfo[ $field ];
+					}
+				}
+				foreach ( array( 'email_verified', 'owner_email_verified' ) as $field ) {
+					if ( isset( $userinfo[ $field ] ) && ( is_bool( $userinfo[ $field ] ) || is_string( $userinfo[ $field ] ) ) ) {
+						$claims[ $field ] = $userinfo[ $field ];
+					}
+				}
 			}
 		}
 
