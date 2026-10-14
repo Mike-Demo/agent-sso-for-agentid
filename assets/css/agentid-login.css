@@ -1,0 +1,23 @@
+.agentid-login-wrap {
+	margin: 16px 0;
+	text-align: center;
+}
+
+.agentid-login-button {
+	display: inline-block;
+	padding: 10px 18px;
+	border: 1px solid #1d2327;
+	border-radius: 4px;
+	background: #fff;
+	color: #1d2327;
+	font-weight: 600;
+	line-height: 1.4;
+	text-decoration: none;
+}
+
+.agentid-login-button:hover,
+.agentid-login-button:focus {
+	background: #1d2327;
+	color: #fff;
+	text-decoration: none;
+}

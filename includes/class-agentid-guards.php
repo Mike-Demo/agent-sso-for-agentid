@@ -1,0 +1,248 @@
+<?php
+/**
+ * Safety guards for agent accounts.
+ *
+ * These protections ship in the free plugin on purpose: they are the
+ * difference between "an agent signed in" and "an agent owns the
+ * site", and safety defaults are not an upsell.
+ *
+ *  - Agent accounts cannot use password authentication (login form,
+ *    XML-RPC), password reset, or application passwords. AgentID is
+ *    the only way in.
+ *  - An agent account's capabilities are ceilinged at its owner's
+ *    capabilities (confused-deputy guard): an agent of a Subscriber
+ *    can never exercise an Editor capability, whatever role the
+ *    agent account itself was given.
+ *  - If an agent account is ever promoted to a site-administering
+ *    role, it is demoted back to the configured default role at its
+ *    next sign-in.
+ *  - Agent sessions expire after the configured number of hours,
+ *    because AgentID key revocation stops new sign-ins but does not
+ *    end sessions this site has already issued.
+ *
+ * @package AgentSSOForAgentID
+ */
+
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
+/**
+ * Safety guards applied to agent accounts.
+ */
+class AgentID_Guards {
+
+	/**
+	 * Register hooks.
+	 */
+	public static function init() {
+		add_filter( 'authenticate', array( __CLASS__, 'block_password_auth' ), 40, 3 );
+		add_filter( 'allow_password_reset', array( __CLASS__, 'block_password_reset' ), 10, 2 );
+		add_filter( 'wp_is_application_passwords_available_for_user', array( __CLASS__, 'block_app_passwords' ), 10, 2 );
+		add_filter( 'user_has_cap', array( __CLASS__, 'capability_ceiling' ), 10, 4 );
+		add_filter( 'auth_cookie_expiration', array( __CLASS__, 'session_length' ), 10, 3 );
+		add_action( 'wp_login', array( __CLASS__, 'demote_admin_agents' ), 10, 2 );
+		add_action( 'show_user_profile', array( __CLASS__, 'profile_section' ) );
+		add_action( 'edit_user_profile', array( __CLASS__, 'profile_section' ) );
+	}
+
+	/**
+	 * Resolve a WP_User from the mixed values filters hand us.
+	 *
+	 * @param mixed $user WP_User|int|null.
+	 * @return WP_User|null
+	 */
+	private static function as_user( $user ) {
+		if ( $user instanceof WP_User ) {
+			return $user;
+		}
+		if ( is_int( $user ) && $user > 0 ) {
+			$found = get_user_by( 'id', $user );
+			return $found ? $found : null;
+		}
+		return null;
+	}
+
+	/**
+	 * Block password authentication for agent accounts.
+	 *
+	 * Runs after core password verification (priority 20) and after
+	 * the AgentID callback has already set its own cookie — this only
+	 * refuses authentications that presented a password.
+	 *
+	 * @param WP_User|WP_Error|null $result   Auth result so far.
+	 * @param string                $username Supplied username.
+	 * @param string                $password Supplied password.
+	 * @return WP_User|WP_Error|null
+	 */
+	public static function block_password_auth( $result, $username, $password ) {
+		if ( '' === (string) $password || is_wp_error( $result ) || ! $result instanceof WP_User ) {
+			return $result;
+		}
+		if ( AgentID_Auth::is_agent_user( $result->ID ) ) {
+			return new WP_Error(
+				'agentid_password_disabled',
+				__( 'This is an agent account. It can only sign in with AgentID.', 'agent-sso-for-agentid' )
+			);
+		}
+		return $result;
+	}
+
+	/**
+	 * No password resets for agent accounts.
+	 *
+	 * @param bool $allow Whether reset is allowed.
+	 * @param int  $user_id User ID.
+	 * @return bool
+	 */
+	public static function block_password_reset( $allow, $user_id ) {
+		if ( AgentID_Auth::is_agent_user( (int) $user_id ) ) {
+			return false;
+		}
+		return $allow;
+	}
+
+	/**
+	 * No application passwords for agent accounts.
+	 *
+	 * @param bool        $available Whether app passwords are available.
+	 * @param WP_User|int $user      The user.
+	 * @return bool
+	 */
+	public static function block_app_passwords( $available, $user ) {
+		$resolved = self::as_user( $user );
+		if ( $resolved && AgentID_Auth::is_agent_user( $resolved->ID ) ) {
+			return false;
+		}
+		return $available;
+	}
+
+	/**
+	 * Ceiling an agent's capabilities at its owner's.
+	 *
+	 * @param array   $allcaps All capabilities granted to the user.
+	 * @param array   $caps    Capabilities being checked.
+	 * @param array   $args    Filter args.
+	 * @param WP_User $user    The user.
+	 * @return array
+	 */
+	public static function capability_ceiling( $allcaps, $caps, $args, $user ) {
+		if ( ! $user instanceof WP_User || ! AgentID_Auth::is_agent_user( $user->ID ) ) {
+			return $allcaps;
+		}
+		$owner_id = (int) get_user_meta( $user->ID, 'agentid_owner_user_id', true );
+		if ( $owner_id <= 0 || $owner_id === (int) $user->ID ) {
+			// No recorded owner: the account keeps only what a fresh
+			// provisioned role would hold — never site administration.
+			unset( $allcaps['manage_options'] );
+			return $allcaps;
+		}
+		$owner = get_user_by( 'id', $owner_id );
+		if ( ! $owner ) {
+			// Owner is gone: fall back to read-only.
+			return array( 'read' => true );
+		}
+		$owner_caps = is_array( $owner->allcaps ) ? $owner->allcaps : array();
+		foreach ( $allcaps as $cap => $granted ) {
+			if ( $granted && empty( $owner_caps[ $cap ] ) && 'read' !== $cap ) {
+				$allcaps[ $cap ] = false;
+			}
+		}
+		return $allcaps;
+	}
+
+	/**
+	 * Short session lifetime for agent accounts.
+	 *
+	 * @param int  $length  Default cookie length in seconds.
+	 * @param int  $user_id User ID.
+	 * @param bool $remember Whether "remember me" was requested.
+	 * @return int
+	 */
+	public static function session_length( $length, $user_id, $remember ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $remember is part of the auth_cookie_expiration filter signature; agent sessions intentionally ignore it.
+		if ( AgentID_Auth::is_agent_user( (int) $user_id ) ) {
+			$hours = (int) agentid_sso_get_option( 'session_hours', 12 );
+			$hours = max( 1, min( 72, $hours ) );
+			return $hours * HOUR_IN_SECONDS;
+		}
+		return $length;
+	}
+
+	/**
+	 * Demote an agent account that somehow holds an administering role.
+	 *
+	 * @param string  $user_login Username.
+	 * @param WP_User $user       The user who signed in.
+	 */
+	public static function demote_admin_agents( $user_login, $user ) {
+		if ( ! $user instanceof WP_User || ! AgentID_Auth::is_agent_user( $user->ID ) ) {
+			return;
+		}
+		foreach ( (array) $user->roles as $role_slug ) {
+			$role = get_role( $role_slug );
+			if ( $role && ! empty( $role->capabilities['manage_options'] ) ) {
+				$user->set_role( AgentID_Auth::safe_default_role() );
+				return;
+			}
+		}
+	}
+
+	/**
+	 * Show AgentID identity details on the user profile.
+	 *
+	 * @param WP_User $profile_user The profile being viewed.
+	 */
+	public static function profile_section( $profile_user ) {
+		$is_agent   = AgentID_Auth::is_agent_user( $profile_user->ID );
+		$linked_sub = (string) get_user_meta( $profile_user->ID, 'agentid_linked_sub', true );
+		if ( ! $is_agent && '' === $linked_sub && (int) get_current_user_id() !== (int) $profile_user->ID ) {
+			return;
+		}
+		?>
+		<h2><?php echo esc_html__( 'AgentID', 'agent-sso-for-agentid' ); ?></h2>
+		<table class="form-table" role="presentation">
+			<?php if ( $is_agent ) : ?>
+				<tr>
+					<th><?php echo esc_html__( 'Agent identity', 'agent-sso-for-agentid' ); ?></th>
+					<td>
+						<code><?php echo esc_html( (string) get_user_meta( $profile_user->ID, 'agentid_sub', true ) ); ?></code>
+						<p class="description">
+							<?php
+							$owner_name  = (string) get_user_meta( $profile_user->ID, 'agentid_owner_name', true );
+							$owner_email = (string) get_user_meta( $profile_user->ID, 'agentid_owner_email', true );
+							if ( '' !== $owner_name || '' !== $owner_email ) {
+								printf(
+									/* translators: 1: owner name, 2: owner email */
+									esc_html__( 'Owner on record: %1$s (%2$s). This account signs in only with AgentID; passwords, password resets and application passwords are disabled for it.', 'agent-sso-for-agentid' ),
+									esc_html( $owner_name ),
+									esc_html( $owner_email )
+								);
+							} else {
+								echo esc_html__( 'This account signs in only with AgentID; passwords, password resets and application passwords are disabled for it.', 'agent-sso-for-agentid' );
+							}
+							?>
+						</p>
+					</td>
+				</tr>
+			<?php endif; ?>
+			<?php if ( (int) get_current_user_id() === (int) $profile_user->ID && agentid_sso_is_configured() ) : ?>
+				<tr>
+					<th><?php echo esc_html__( 'Link your agent', 'agent-sso-for-agentid' ); ?></th>
+					<td>
+						<?php if ( '' !== $linked_sub ) : ?>
+							<code><?php echo esc_html( $linked_sub ); ?></code>
+							<p class="description"><?php echo esc_html__( 'This agent identity is linked to your account as its owner.', 'agent-sso-for-agentid' ); ?></p>
+						<?php else : ?>
+							<a class="button" href="<?php echo esc_url( agentid_sso_start_url( '', 'link' ) ); ?>"><?php echo esc_html__( 'Link an AgentID agent', 'agent-sso-for-agentid' ); ?></a>
+							<p class="description"><?php echo esc_html__( 'Signs you through AgentID once and records that agent as yours. The agent still gets its own account on this site — it never signs in as you.', 'agent-sso-for-agentid' ); ?></p>
+						<?php endif; ?>
+						<?php if ( isset( $_GET['agentid_linked'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Confirmation banner only. ?>
+							<p><strong><?php echo esc_html__( 'Agent linked.', 'agent-sso-for-agentid' ); ?></strong></p>
+						<?php endif; ?>
+					</td>
+				</tr>
+			<?php endif; ?>
+		</table>
+		<?php
+	}
+}
