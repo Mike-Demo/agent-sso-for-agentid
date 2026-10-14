@@ -1,25 +1,25 @@
 <?php
 /**
- * Plugin Name:       Agent SSO for AgentID
- * Plugin URI:        https://github.com/Mike-Demo/agent-sso-for-agentid
+ * Plugin Name:       Agentic Agent SSO
+ * Plugin URI:        https://github.com/Mike-Demo/agentic-agent-sso
  * Description:       Adds "Sign in with AgentID" to WP and WooCommerce. Lets verified AI agents sign in as themselves — with a human owner on record — instead of sharing a person's password. Site owners register their own free application at console.agentid.com and connect it here. Independent community integration for AgentID by AgentMail (github.com/agentmail-to); not affiliated with or endorsed by AgentMail.
- * Version:           0.1.1
+ * Version:           0.1.2
  * Requires at least: 6.3
  * Requires PHP:      7.4
  * Author:            Mike Demopoulos
  * License:           GPLv2 or later
  * License URI:       https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain:       agent-sso-for-agentid
+ * Text Domain:       agentic-agent-sso
  * Domain Path:       /languages
  *
- * @package AgentSSOForAgentID
+ * @package AgenticAgentSSO
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'AGENTID_SSO_VERSION', '0.1.1' );
+define( 'AGENTID_SSO_VERSION', '0.1.2' );
 define( 'AGENTID_SSO_FILE', __FILE__ );
 define( 'AGENTID_SSO_DIR', plugin_dir_path( __FILE__ ) );
 define( 'AGENTID_SSO_URL', plugin_dir_url( __FILE__ ) );

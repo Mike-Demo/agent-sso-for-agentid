@@ -9,7 +9,7 @@
  *  - Issuer, audience, expiry, issued-at, nonce and actor_type are
  *    all checked before any claim is trusted.
  *
- * @package AgentSSOForAgentID
+ * @package AgenticAgentSSO
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -49,19 +49,19 @@ class AgentID_OIDC {
 			return $response;
 		}
 		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-			return new WP_Error( 'agentid_discovery_http', __( 'AgentID discovery did not return HTTP 200.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_discovery_http', __( 'AgentID discovery did not return HTTP 200.', 'agentic-agent-sso' ) );
 		}
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) || empty( $data['issuer'] ) || AGENTID_ISSUER !== $data['issuer'] ) {
-			return new WP_Error( 'agentid_discovery_issuer', __( 'AgentID discovery returned an unexpected issuer.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_discovery_issuer', __( 'AgentID discovery returned an unexpected issuer.', 'agentic-agent-sso' ) );
 		}
 		foreach ( array( 'authorization_endpoint', 'token_endpoint', 'jwks_uri', 'userinfo_endpoint' ) as $field ) {
 			if ( empty( $data[ $field ] ) || 0 !== strpos( $data[ $field ], AGENTID_ISSUER . '/' ) ) {
-				return new WP_Error( 'agentid_discovery_endpoint', __( 'AgentID discovery returned an unexpected endpoint.', 'agent-sso-for-agentid' ) );
+				return new WP_Error( 'agentid_discovery_endpoint', __( 'AgentID discovery returned an unexpected endpoint.', 'agentic-agent-sso' ) );
 			}
 		}
 		if ( empty( $data['id_token_signing_alg_values_supported'] ) || ! in_array( 'ES256', $data['id_token_signing_alg_values_supported'], true ) ) {
-			return new WP_Error( 'agentid_discovery_alg', __( 'AgentID discovery does not advertise ES256.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_discovery_alg', __( 'AgentID discovery does not advertise ES256.', 'agentic-agent-sso' ) );
 		}
 		set_transient( 'agentid_sso_discovery', $data, self::DISCOVERY_TTL );
 		return $data;
@@ -95,11 +95,11 @@ class AgentID_OIDC {
 			return $response;
 		}
 		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-			return new WP_Error( 'agentid_jwks_http', __( 'AgentID JWKS did not return HTTP 200.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwks_http', __( 'AgentID JWKS did not return HTTP 200.', 'agentic-agent-sso' ) );
 		}
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) || empty( $data['keys'] ) || ! is_array( $data['keys'] ) ) {
-			return new WP_Error( 'agentid_jwks_shape', __( 'AgentID JWKS returned no keys.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwks_shape', __( 'AgentID JWKS returned no keys.', 'agentic-agent-sso' ) );
 		}
 		set_transient( 'agentid_sso_jwks', $data, self::JWKS_TTL );
 		return $data;
@@ -169,12 +169,12 @@ class AgentID_OIDC {
 	 */
 	public static function jwk_ec_to_pem( array $jwk ) {
 		if ( empty( $jwk['kty'] ) || 'EC' !== $jwk['kty'] || empty( $jwk['crv'] ) || 'P-256' !== $jwk['crv'] ) {
-			return new WP_Error( 'agentid_jwk_type', __( 'Signing key is not a P-256 EC key.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwk_type', __( 'Signing key is not a P-256 EC key.', 'agentic-agent-sso' ) );
 		}
 		$x = isset( $jwk['x'] ) ? self::b64url_decode( (string) $jwk['x'] ) : false;
 		$y = isset( $jwk['y'] ) ? self::b64url_decode( (string) $jwk['y'] ) : false;
 		if ( false === $x || false === $y || 32 !== strlen( $x ) || 32 !== strlen( $y ) ) {
-			return new WP_Error( 'agentid_jwk_coords', __( 'Signing key coordinates are malformed.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwk_coords', __( 'Signing key coordinates are malformed.', 'agentic-agent-sso' ) );
 		}
 		$oid_ec_public_key = "\x06\x07\x2a\x86\x48\xce\x3d\x02\x01"; // 1.2.840.10045.2.1
 		$oid_prime256v1    = "\x06\x08\x2a\x86\x48\xce\x3d\x03\x01\x07"; // 1.2.840.10045.3.1.7
@@ -192,7 +192,7 @@ class AgentID_OIDC {
 	 */
 	public static function ecdsa_raw_to_der( $raw ) {
 		if ( 64 !== strlen( $raw ) ) {
-			return new WP_Error( 'agentid_sig_length', __( 'Signature has an unexpected length.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_sig_length', __( 'Signature has an unexpected length.', 'agentic-agent-sso' ) );
 		}
 		$parts = array( substr( $raw, 0, 32 ), substr( $raw, 32, 32 ) );
 		$der   = '';
@@ -221,22 +221,22 @@ class AgentID_OIDC {
 	public static function verify_id_token( $jwt, array $jwks, $client_id, $nonce = '' ) {
 		$segments = explode( '.', (string) $jwt );
 		if ( 3 !== count( $segments ) ) {
-			return new WP_Error( 'agentid_jwt_shape', __( 'ID token is malformed.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwt_shape', __( 'ID token is malformed.', 'agentic-agent-sso' ) );
 		}
 		list( $head64, $body64, $sig64 ) = $segments;
 		$header_json                     = self::b64url_decode( $head64 );
 		$claims_json                     = self::b64url_decode( $body64 );
 		$signature                       = self::b64url_decode( $sig64 );
 		if ( false === $header_json || false === $claims_json || false === $signature ) {
-			return new WP_Error( 'agentid_jwt_decode', __( 'ID token could not be decoded.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwt_decode', __( 'ID token could not be decoded.', 'agentic-agent-sso' ) );
 		}
 		$header = json_decode( $header_json, true );
 		$claims = json_decode( $claims_json, true );
 		if ( ! is_array( $header ) || ! is_array( $claims ) ) {
-			return new WP_Error( 'agentid_jwt_json', __( 'ID token is not valid JSON.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwt_json', __( 'ID token is not valid JSON.', 'agentic-agent-sso' ) );
 		}
 		if ( empty( $header['alg'] ) || 'ES256' !== $header['alg'] ) {
-			return new WP_Error( 'agentid_jwt_alg', __( 'ID token uses an unexpected signing algorithm.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwt_alg', __( 'ID token uses an unexpected signing algorithm.', 'agentic-agent-sso' ) );
 		}
 		$jwk = null;
 		foreach ( $jwks['keys'] as $candidate ) {
@@ -249,7 +249,7 @@ class AgentID_OIDC {
 			}
 		}
 		if ( null === $jwk ) {
-			return new WP_Error( 'agentid_jwt_kid', __( 'ID token signing key was not found in the issuer JWKS.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwt_kid', __( 'ID token signing key was not found in the issuer JWKS.', 'agentic-agent-sso' ) );
 		}
 		$pem = self::jwk_ec_to_pem( $jwk );
 		if ( is_wp_error( $pem ) ) {
@@ -261,63 +261,63 @@ class AgentID_OIDC {
 		}
 		$verified = openssl_verify( $head64 . '.' . $body64, $der_sig, $pem, OPENSSL_ALGO_SHA256 );
 		if ( 1 !== $verified ) {
-			return new WP_Error( 'agentid_jwt_signature', __( 'ID token signature verification failed.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_jwt_signature', __( 'ID token signature verification failed.', 'agentic-agent-sso' ) );
 		}
 		$now = time();
 		if ( empty( $claims['iss'] ) || AGENTID_ISSUER !== $claims['iss'] ) {
-			return new WP_Error( 'agentid_claim_iss', __( 'ID token issuer mismatch.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_iss', __( 'ID token issuer mismatch.', 'agentic-agent-sso' ) );
 		}
 		$audiences = array();
 		if ( isset( $claims['aud'] ) ) {
 			$audiences = is_array( $claims['aud'] ) ? array_values( $claims['aud'] ) : array( $claims['aud'] );
 			foreach ( $audiences as $audience_value ) {
 				if ( ! is_string( $audience_value ) ) {
-					return new WP_Error( 'agentid_claim_aud', __( 'ID token audience is malformed.', 'agent-sso-for-agentid' ) );
+					return new WP_Error( 'agentid_claim_aud', __( 'ID token audience is malformed.', 'agentic-agent-sso' ) );
 				}
 			}
 		}
 		if ( ! in_array( $client_id, $audiences, true ) ) {
-			return new WP_Error( 'agentid_claim_aud', __( 'ID token audience mismatch.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_aud', __( 'ID token audience mismatch.', 'agentic-agent-sso' ) );
 		}
 		// OIDC Core 3.1.3.7: with multiple audiences the authorized
 		// party (azp) must be present and must be this client; whenever
 		// azp is present at all it must match.
 		if ( isset( $claims['azp'] ) && ( ! is_string( $claims['azp'] ) || $client_id !== $claims['azp'] ) ) {
-			return new WP_Error( 'agentid_claim_azp', __( 'ID token authorized party mismatch.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_azp', __( 'ID token authorized party mismatch.', 'agentic-agent-sso' ) );
 		}
 		if ( count( $audiences ) > 1 && ! isset( $claims['azp'] ) ) {
-			return new WP_Error( 'agentid_claim_azp', __( 'ID token for multiple audiences has no authorized party.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_azp', __( 'ID token for multiple audiences has no authorized party.', 'agentic-agent-sso' ) );
 		}
 		if ( ! isset( $claims['exp'] ) || ! is_numeric( $claims['exp'] ) || (int) $claims['exp'] < $now - self::LEEWAY ) {
-			return new WP_Error( 'agentid_claim_exp', __( 'ID token has expired.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_exp', __( 'ID token has expired.', 'agentic-agent-sso' ) );
 		}
 		// iat is required on ID tokens (OIDC Core 2); it must be a
 		// number and must not sit beyond the allowed clock skew.
 		if ( ! isset( $claims['iat'] ) || ! is_numeric( $claims['iat'] ) ) {
-			return new WP_Error( 'agentid_claim_iat', __( 'ID token has no valid issued-at time.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_iat', __( 'ID token has no valid issued-at time.', 'agentic-agent-sso' ) );
 		}
 		if ( (int) $claims['iat'] > $now + 300 ) {
-			return new WP_Error( 'agentid_claim_iat', __( 'ID token was issued in the future.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_iat', __( 'ID token was issued in the future.', 'agentic-agent-sso' ) );
 		}
 		if ( isset( $claims['nbf'] ) ) {
 			if ( ! is_numeric( $claims['nbf'] ) ) {
-				return new WP_Error( 'agentid_claim_nbf', __( 'ID token not-before time is malformed.', 'agent-sso-for-agentid' ) );
+				return new WP_Error( 'agentid_claim_nbf', __( 'ID token not-before time is malformed.', 'agentic-agent-sso' ) );
 			}
 			if ( (int) $claims['nbf'] > $now + self::LEEWAY ) {
-				return new WP_Error( 'agentid_claim_nbf', __( 'ID token is not valid yet.', 'agent-sso-for-agentid' ) );
+				return new WP_Error( 'agentid_claim_nbf', __( 'ID token is not valid yet.', 'agentic-agent-sso' ) );
 			}
 		}
 		if ( '' !== $nonce && ( empty( $claims['nonce'] ) || ! hash_equals( $nonce, (string) $claims['nonce'] ) ) ) {
-			return new WP_Error( 'agentid_claim_nonce', __( 'ID token nonce mismatch.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_nonce', __( 'ID token nonce mismatch.', 'agentic-agent-sso' ) );
 		}
 		if ( empty( $claims['sub'] ) || ! is_string( $claims['sub'] ) ) {
-			return new WP_Error( 'agentid_claim_sub', __( 'ID token has no subject.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_sub', __( 'ID token has no subject.', 'agentic-agent-sso' ) );
 		}
 		// AgentID tokens always carry actor_type; fail closed if it is
 		// absent or is not an agent. A human identity provider's token
 		// must never be accepted here.
 		if ( empty( $claims['actor_type'] ) || 'agent' !== $claims['actor_type'] ) {
-			return new WP_Error( 'agentid_claim_actor', __( 'ID token does not identify an agent.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_claim_actor', __( 'ID token does not identify an agent.', 'agentic-agent-sso' ) );
 		}
 		return $claims;
 	}
@@ -359,7 +359,7 @@ class AgentID_OIDC {
 		}
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) || ! is_array( $data ) || empty( $data['id_token'] ) ) {
-			return new WP_Error( 'agentid_token_exchange', __( 'AgentID token exchange failed.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_token_exchange', __( 'AgentID token exchange failed.', 'agentic-agent-sso' ) );
 		}
 		return $data;
 	}
@@ -386,11 +386,11 @@ class AgentID_OIDC {
 			return $response;
 		}
 		if ( 200 !== (int) wp_remote_retrieve_response_code( $response ) ) {
-			return new WP_Error( 'agentid_userinfo_http', __( 'AgentID userinfo did not return HTTP 200.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_userinfo_http', __( 'AgentID userinfo did not return HTTP 200.', 'agentic-agent-sso' ) );
 		}
 		$data = json_decode( wp_remote_retrieve_body( $response ), true );
 		if ( ! is_array( $data ) || empty( $data['sub'] ) ) {
-			return new WP_Error( 'agentid_userinfo_shape', __( 'AgentID userinfo returned no subject.', 'agent-sso-for-agentid' ) );
+			return new WP_Error( 'agentid_userinfo_shape', __( 'AgentID userinfo returned no subject.', 'agentic-agent-sso' ) );
 		}
 		return $data;
 	}

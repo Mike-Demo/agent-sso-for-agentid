@@ -13,7 +13,7 @@
  *  - Provisioned accounts never receive a role that can administer
  *    the site.
  *
- * @package AgentSSOForAgentID
+ * @package AgenticAgentSSO
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -36,7 +36,7 @@ class AgentID_Auth {
 		add_action( 'admin_post_nopriv_agentid_login', array( __CLASS__, 'start' ) );
 		add_action( 'admin_post_agentid_callback', array( __CLASS__, 'callback' ) );
 		add_action( 'admin_post_nopriv_agentid_callback', array( __CLASS__, 'callback' ) );
-		add_action( 'login_form_agentid_error', array( __CLASS__, 'login_error_message' ) );
+		add_filter( 'wp_login_errors', array( __CLASS__, 'login_errors' ), 10, 2 );
 	}
 
 	/**
@@ -83,31 +83,41 @@ class AgentID_Auth {
 	 */
 	public static function error_messages() {
 		return array(
-			'not_configured'  => __( 'AgentID sign-in is not configured on this site yet.', 'agent-sso-for-agentid' ),
-			'discovery'       => __( 'This site could not reach AgentID. Please try again later.', 'agent-sso-for-agentid' ),
-			'state'           => __( 'The sign-in link has expired or does not belong to this browser. Please start again.', 'agent-sso-for-agentid' ),
-			'denied'          => __( 'The sign-in was cancelled at AgentID.', 'agent-sso-for-agentid' ),
-			'token'           => __( 'AgentID did not complete the sign-in. Please start again.', 'agent-sso-for-agentid' ),
-			'verify'          => __( 'The AgentID identity could not be verified.', 'agent-sso-for-agentid' ),
-			'no_email'        => __( 'AgentID did not return an email address for this agent, so an account cannot be created. Ask the site owner to request the email scope.', 'agent-sso-for-agentid' ),
-			'email_taken'     => __( 'The agent\'s email address already belongs to a different account on this site, so sign-in was refused. Ask the site owner to resolve the conflict.', 'agent-sso-for-agentid' ),
-			'disabled'        => __( 'This agent account has been disabled by the site owner.', 'agent-sso-for-agentid' ),
-			'provision'       => __( 'An account could not be created for this agent.', 'agent-sso-for-agentid' ),
-			'link_no_user'    => __( 'Please sign in to your account first, then start linking again.', 'agent-sso-for-agentid' ),
-			'link_nonce'      => __( 'That linking link has expired. Please start again from your profile.', 'agent-sso-for-agentid' ),
-			'link_sub_in_use' => __( 'That agent is already linked to a different account.', 'agent-sso-for-agentid' ),
+			'not_configured'  => __( 'AgentID sign-in is not configured on this site yet.', 'agentic-agent-sso' ),
+			'discovery'       => __( 'This site could not reach AgentID. Please try again later.', 'agentic-agent-sso' ),
+			'state'           => __( 'The sign-in link has expired or does not belong to this browser. Please start again.', 'agentic-agent-sso' ),
+			'denied'          => __( 'The sign-in was cancelled at AgentID.', 'agentic-agent-sso' ),
+			'token'           => __( 'AgentID did not complete the sign-in. Please start again.', 'agentic-agent-sso' ),
+			'verify'          => __( 'The AgentID identity could not be verified.', 'agentic-agent-sso' ),
+			'no_email'        => __( 'AgentID did not return an email address for this agent, so an account cannot be created. Ask the site owner to request the email scope.', 'agentic-agent-sso' ),
+			'email_taken'     => __( 'The agent\'s email address already belongs to a different account on this site, so sign-in was refused. Ask the site owner to resolve the conflict.', 'agentic-agent-sso' ),
+			'disabled'        => __( 'This agent account has been disabled by the site owner.', 'agentic-agent-sso' ),
+			'provision'       => __( 'An account could not be created for this agent.', 'agentic-agent-sso' ),
+			'link_no_user'    => __( 'Please sign in to your account first, then start linking again.', 'agentic-agent-sso' ),
+			'link_nonce'      => __( 'That linking link has expired. Please start again from your profile.', 'agentic-agent-sso' ),
+			'link_sub_in_use' => __( 'That agent is already linked to a different account.', 'agentic-agent-sso' ),
 		);
 	}
 
 	/**
-	 * Print the flow error on the login form.
+	 * Add the flow error to the login form's error list.
+	 *
+	 * Goes through the wp_login_errors filter so core renders the
+	 * message inside the form, in the right place — the previous
+	 * login_form_agentid_error action printed a raw div before
+	 * login_header() had run, i.e. before the page's doctype.
+	 *
+	 * @param WP_Error $errors      Login errors so far.
+	 * @param string   $redirect_to Redirect destination after login.
+	 * @return WP_Error
 	 */
-	public static function login_error_message() {
+	public static function login_errors( $errors, $redirect_to ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- $redirect_to is part of the wp_login_errors filter signature; the flow error does not depend on it.
 		$code     = isset( $_GET['agentid_code'] ) ? sanitize_key( wp_unslash( $_GET['agentid_code'] ) ) : ''; // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Displaying a message for a code we generated; no state changes.
 		$messages = self::error_messages();
-		if ( isset( $messages[ $code ] ) ) {
-			printf( '<div id="login_error"><strong>%s</strong> %s</div>', esc_html__( 'Error:', 'agent-sso-for-agentid' ), esc_html( $messages[ $code ] ) );
+		if ( $errors instanceof WP_Error && isset( $messages[ $code ] ) ) {
+			$errors->add( 'agentid_error', $messages[ $code ] );
 		}
+		return $errors;
 	}
 
 	/**
@@ -361,13 +371,24 @@ class AgentID_Auth {
 	}
 
 	/**
-	 * The owner user ID for claims, when verified owner email matching
-	 * is enabled and a matching account exists.
+	 * The owner user ID for claims.
+	 *
+	 * An explicit profile link is the strongest signal — a signed-in
+	 * human deliberately paired this agent subject with their own
+	 * account — so it is honoured first, whether or not owner email
+	 * matching is enabled. Without it, an agent whose owner could
+	 * not be resolved this way silently received no capability
+	 * ceiling beyond the hard denies. Verified owner email matching
+	 * is the fallback.
 	 *
 	 * @param array $claims Verified claims.
 	 * @return int
 	 */
 	private static function resolve_owner_id( array $claims ) {
+		$linked = self::find_user_by_meta( 'agentid_linked_sub', (string) $claims['sub'] );
+		if ( $linked ) {
+			return (int) $linked->ID;
+		}
 		if ( ! agentid_sso_get_option( 'link_by_owner_email', 1 ) ) {
 			return 0;
 		}
@@ -375,11 +396,7 @@ class AgentID_Auth {
 			return 0;
 		}
 		$owner = get_user_by( 'email', sanitize_email( $claims['owner_email'] ) );
-		if ( ! $owner ) {
-			$linked = self::find_user_by_meta( 'agentid_linked_sub', (string) $claims['sub'] );
-			return $linked ? (int) $linked->ID : 0;
-		}
-		return (int) $owner->ID;
+		return $owner ? (int) $owner->ID : 0;
 	}
 
 	/**
@@ -432,7 +449,7 @@ class AgentID_Auth {
 			: $username;
 		if ( ! empty( $claims['owner_name'] ) && is_string( $claims['owner_name'] ) ) {
 			/* translators: 1: agent display name, 2: owner name */
-			$display = sprintf( __( '%1$s (agent of %2$s)', 'agent-sso-for-agentid' ), $display, sanitize_text_field( $claims['owner_name'] ) );
+			$display = sprintf( __( '%1$s (agent of %2$s)', 'agentic-agent-sso' ), $display, sanitize_text_field( $claims['owner_name'] ) );
 		}
 
 		$user_id = wp_insert_user(

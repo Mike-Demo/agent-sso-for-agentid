@@ -1,10 +1,10 @@
-=== Agent SSO for AgentID ===
+=== Agentic Agent SSO ===
 Contributors: mikedemo
 Tags: sso, oidc, openid-connect, ai-agents, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.1
+Stable tag: 0.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -18,6 +18,10 @@ This plugin adds **Sign in with AgentID** to your site, so agents can authentica
 
 **Credit:** AgentID is a product of AgentMail. This plugin is an independent, community-built integration that exists to make AgentID easier to adopt on WP and WooCommerce. It is not affiliated with, endorsed by, or sponsored by AgentMail, and it does not replace any part of their product — your site still uses your own AgentID application, on their service, under their terms.
 AgentID on the web: https://www.agentid.com — AgentMail/AgentID on GitHub: https://github.com/agentmail-to
+
+= Disclaimer =
+
+Agentic Agent SSO is an independent, open-source community project. It is **not** made by, affiliated with, endorsed by, or sponsored by AgentMail, and it is not an official AgentID product. AgentID and AgentMail are trademarks of their respective owners; both names are used in this plugin and its documentation only to describe the service the plugin connects to. Support for this plugin comes from its own community, not from AgentMail.
 
 = How it works =
 
@@ -44,8 +48,8 @@ AgentID on the web: https://www.agentid.com — AgentMail/AgentID on GitHub: htt
 
 1. Upload the plugin, or install it from the Plugins screen, and activate it.
 2. Create a free application for your site at console.agentid.com.
-3. In the AgentID console, register the Redirect URI shown on this plugin's settings page (Settings → AgentID SSO), set token endpoint authentication to `client_secret_basic`, and require PKCE (S256).
-4. Copy the Client ID (and Client Secret, if your application has one) into Settings → AgentID SSO and save.
+3. In the AgentID console, register the Redirect URI shown on this plugin's settings page (Settings → Agentic Agent SSO), set token endpoint authentication to `client_secret_basic`, and require PKCE (S256).
+4. Copy the Client ID (and Client Secret, if your application has one) into Settings → Agentic Agent SSO and save.
 5. Click "Test connection to AgentID". Then sign out and try the "Sign in with AgentID" button.
 
 == Frequently Asked Questions ==
@@ -80,7 +84,7 @@ This plugin connects to the AgentID service (operated by AgentMail) to authentic
 
 * Service: AgentID — https://www.agentid.com — documentation: https://www.agentid.com/docs
 * Endpoints used, all under https://auth.agentid.com: the OpenID Connect discovery document (/.well-known/openid-configuration), the authorization endpoint (/v0/authorize), the token endpoint (/v0/token), the JWKS endpoint (/v0/jwks.json), and the userinfo endpoint (/v0/userinfo).
-* Data sent: when a visitor starts an AgentID sign-in, the browser is redirected to AgentID with this site's client ID, the requested scopes, and single-use state/nonce/PKCE values. The resulting authorization code is then exchanged directly between this site's server and AgentID's token endpoint. No site content, user database, or browsing data is sent.
+* Data sent: when a visitor starts an AgentID sign-in, the browser is redirected to AgentID with this site's client ID, the requested scopes, the redirect URI registered for this site, and single-use state/nonce/PKCE challenge values. The resulting authorization code is then exchanged directly between this site's server and AgentID's token endpoint: that exchange sends the authorization code, the PKCE code verifier, the redirect URI, and — for applications with a client secret — the client ID and client secret, sent as HTTP Basic authentication. When the application requests user information, the site then calls the userinfo endpoint presenting the resulting access token. No site content, user database, or browsing data is sent.
 * Admin test: when an administrator clicks "Test connection" in this plugin's settings, the site's server requests the discovery document and signing keys from AgentID to verify the connection. No user or site data is included — the request carries only what any HTTPS request necessarily carries, such as the server's IP address. The discovery document and keys are also cached briefly by the sign-in flow itself.
 * Data received: the signed ID token (and userinfo response) for the signing-in agent: agent ID, agent email, and — for registered applications that request the owner scopes — the owner's name and email. The fields the site keeps are listed under Privacy.
 * AgentID's terms of service: https://www.agentid.com/legal/terms — AgentID's privacy policy: https://www.agentid.com/legal/privacy. Confirm the current documents there before registering your application.
@@ -89,11 +93,27 @@ This plugin connects to the AgentID service (operated by AgentMail) to authentic
 
 This plugin does not track visitors, does not phone home, and contains no analytics.
 
-For agent accounts it creates or signs in, the plugin stores these user meta fields from the verified AgentID sign-in: agent subject ID, actor type, agent email (as the account email), owner subject ID, owner name, owner email, the linked owner account ID when matched, and the time of the last sign-in. Tokens issued by AgentID are never stored; the client secret you enter is stored in the site's options table, like other SSO credentials, and is never displayed after saving.
+For agent accounts it creates or signs in, the plugin stores these user meta fields from the verified AgentID sign-in: agent subject ID, actor type, agent email (as the account email), owner subject ID, owner name, owner email, the linked owner account ID when matched, and the time of the last sign-in. When a site user links an agent from their profile, the agent's subject ID is also stored on that user's account (the linked-subject field). During a sign-in, the plugin sets a short-lived browser cookie (10 minutes) that binds the flow to the browser, and stores the flow state in a transient for the same period; the transient is deleted on first use and the cookie expires with the flow. Tokens issued by AgentID are never stored; the client secret you enter is stored in the site's options table, like other SSO credentials, and is never displayed after saving.
 
 Suggested privacy-policy text: "If you sign in with AgentID, we receive your agent identity and your owner's name and email from AgentID (operated by AgentMail) and store them with your account so we can identify you and your owner."
 
+== Upgrade Notice ==
+
+= 0.1.2 =
+Renamed to Agentic Agent SSO. The Gutenberg block now loads correctly in the editor, agent accounts are denied the full set of site-administration capabilities (not just one), and explicitly linked agents always receive their owner's capability ceiling. Recommended for all sites.
+
+= 0.1.1 =
+Security hardening release: unconditional denial of site-administration capability for agent accounts, stricter ID token validation, and multisite-safe uninstall.
+
 == Changelog ==
+
+= 0.1.2 =
+* Renamed: the plugin is now "Agentic Agent SSO" (slug agentic-agent-sso). The name no longer builds on the AgentID trademark; AgentID is still the service it connects to and is credited as such. Settings, options and account data are unchanged.
+* Fixed: the Gutenberg login-button block never registered in the editor — its editor script now ships the dependency declaration (index.asset.php) WordPress needs, so the block appears in the inserter and its strings are translatable.
+* Security: the agent-account "never administer" guarantee now denies the full site-administration capability set (plugin/theme management, user promotion and deletion, unfiltered HTML, core updates, network administration, and more) at all times — not only manage_options. Role provisioning and sign-in demotion use the same capability set, so a role granting any of them can neither be assigned to a new agent account nor kept by one.
+* Fixed: an agent explicitly linked by its owner from the profile page is now always resolved to that owner (and so always receives the owner's capability ceiling), even when owner-email matching is disabled or the sign-in carries no verified owner email.
+* Fixed: sign-in error messages are rendered through the wp_login_errors filter instead of being printed before the login page's header.
+* Documentation: the external-services disclosure now lists everything sent during the token exchange (authorization code, PKCE verifier, redirect URI, client secret over HTTP Basic) and the userinfo call; the privacy section now also covers the owner account's linked-subject field, the flow cookie, and flow transients. An explicit unaffiliation disclaimer was added. A .distignore file now keeps development files out of distribution archives.
 
 = 0.1.1 =
 * Security hardening from a full external code review: agent accounts now have site-administration capability denied unconditionally (previously the owner-capability ceiling could preserve it); the profile linking flow requires an intent nonce; ID token validation now enforces the OIDC authorized-party (azp) rule for multi-audience tokens, requires a numeric issued-at time, and rejects not-yet-valid (nbf) tokens; an agent's email is only used as the account email when the issuer marks it verified, otherwise a non-deliverable placeholder derived from the agent's ID is used; claim values are type-checked before use.

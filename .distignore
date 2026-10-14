@@ -1,0 +1,8 @@
+/.git
+/.github
+/docs
+/tests
+/.distignore
+/phpcs.xml.dist
+/TESTING.md
+/README.md

@@ -4,7 +4,7 @@
 	var el = element.createElement;
 	var __ = i18n.__;
 
-	blocks.registerBlockType('agentid-sso/login-button', {
+	blocks.registerBlockType('agentic-agent-sso/login-button', {
 		edit: function (props) {
 			var InspectorControls = blockEditor.InspectorControls;
 			var PanelBody = wp.components.PanelBody;
@@ -18,9 +18,9 @@
 					{},
 					el(
 						PanelBody,
-						{ title: __('Button', 'agent-sso-for-agentid'), initialOpen: true },
+						{ title: __('Button', 'agentic-agent-sso'), initialOpen: true },
 						el(TextControl, {
-							label: __('Label (blank = default)', 'agent-sso-for-agentid'),
+							label: __('Label (blank = default)', 'agentic-agent-sso'),
 							value: props.attributes.label || '',
 							onChange: function (value) {
 								props.setAttributes({ label: value });
@@ -29,7 +29,7 @@
 					)
 				),
 				el(serverSideRender, {
-					block: 'agentid-sso/login-button',
+					block: 'agentic-agent-sso/login-button',
 					attributes: props.attributes
 				})
 			);

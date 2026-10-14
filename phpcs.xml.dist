@@ -1,5 +1,5 @@
 <?xml version="1.0"?>
-<ruleset name="Agent SSO for AgentID">
+<ruleset name="Agentic Agent SSO">
 	<description>WP Coding Standards for this plugin, per the WP Codex / Plugin Developer Handbook.</description>
 
 	<file>.</file>
@@ -9,7 +9,7 @@
 	<arg name="basepath" value="."/>
 	<arg value="ps"/>
 
-	<config name="minimum_wp_version" value="6.0"/>
+	<config name="minimum_wp_version" value="6.3"/>
 	<config name="testVersion" value="7.4-"/>
 
 	<rule ref="WordPress">

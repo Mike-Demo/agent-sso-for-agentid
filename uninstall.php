@@ -1,13 +1,13 @@
 <?php
 /**
- * Uninstall cleanup for Agent SSO for AgentID.
+ * Uninstall cleanup for Agentic Agent SSO.
  *
  * Removes the plugin's options and cached transients. User accounts
  * created for agents are intentionally left in place — they belong to
  * the site — but their AgentID identity meta is removed so a later
  * reinstall starts from a clean slate.
  *
- * @package AgentSSOForAgentID
+ * @package AgenticAgentSSO
  */
 
 if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {

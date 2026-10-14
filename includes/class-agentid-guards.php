@@ -20,7 +20,7 @@
  *    because AgentID key revocation stops new sign-ins but does not
  *    end sessions this site has already issued.
  *
- * @package AgentSSOForAgentID
+ * @package AgenticAgentSSO
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -82,7 +82,7 @@ class AgentID_Guards {
 		if ( AgentID_Auth::is_agent_user( $result->ID ) ) {
 			return new WP_Error(
 				'agentid_password_disabled',
-				__( 'This is an agent account. It can only sign in with AgentID.', 'agent-sso-for-agentid' )
+				__( 'This is an agent account. It can only sign in with AgentID.', 'agentic-agent-sso' )
 			);
 		}
 		return $result;
@@ -118,6 +118,56 @@ class AgentID_Guards {
 	}
 
 	/**
+	 * Capabilities an agent account must never hold, under any role
+	 * and regardless of its owner: the site-administration set.
+	 *
+	 * Denying only manage_options is not enough — an account that
+	 * keeps install_plugins, promote_users or unfiltered_html can
+	 * still take over a site between sign-ins. The same set decides
+	 * which roles an agent may be provisioned with (see
+	 * AgentID_Settings::provisionable_roles()) and which roles get
+	 * demoted at sign-in (see demote_admin_agents()).
+	 *
+	 * @return string[]
+	 */
+	public static function hard_denied_caps() {
+		return array(
+			'manage_options',
+			'edit_theme_options',
+			'edit_users',
+			'create_users',
+			'delete_users',
+			'promote_users',
+			'promote_user',
+			'remove_users',
+			'install_plugins',
+			'activate_plugins',
+			'delete_plugins',
+			'edit_plugins',
+			'install_themes',
+			'delete_themes',
+			'edit_themes',
+			'switch_themes',
+			'update_core',
+			'update_plugins',
+			'update_themes',
+			'update_languages',
+			'edit_files',
+			'edit_css',
+			'unfiltered_html',
+			'unfiltered_upload',
+			'manage_network',
+			'manage_network_users',
+			'manage_network_plugins',
+			'manage_network_themes',
+			'manage_network_options',
+			'upgrade_network',
+			'setup_network',
+			'delete_site',
+		);
+	}
+
+	/**
 	 * Ceiling an agent's capabilities at its owner's.
 	 *
 	 * @param array   $allcaps All capabilities granted to the user.
@@ -131,11 +181,13 @@ class AgentID_Guards {
 			return $allcaps;
 		}
 		// An agent account must never administer the site — no matter
-		// what its role says, and no matter what its owner can do. This
-		// deny is unconditional; the owner ceiling below only ever
-		// removes further capabilities.
-		$allcaps['manage_options'] = false;
-		$owner_id                  = (int) get_user_meta( $user->ID, 'agentid_owner_user_id', true );
+		// what its role says, and no matter what its owner can do.
+		// This deny is unconditional; the owner ceiling below only
+		// ever removes further capabilities.
+		foreach ( self::hard_denied_caps() as $denied_cap ) {
+			$allcaps[ $denied_cap ] = false;
+		}
+		$owner_id = (int) get_user_meta( $user->ID, 'agentid_owner_user_id', true );
 		if ( $owner_id <= 0 || $owner_id === (int) $user->ID ) {
 			// No recorded owner: keep the account's role capabilities
 			// (site administration already denied above).
@@ -182,9 +234,12 @@ class AgentID_Guards {
 		if ( ! $user instanceof WP_User || ! AgentID_Auth::is_agent_user( $user->ID ) ) {
 			return;
 		}
+		// Any role the plugin would refuse to provision — because it
+		// grants a hard-denied capability — is demoted on sight, not
+		// just roles holding manage_options.
+		$provisionable = AgentID_Settings::provisionable_roles();
 		foreach ( (array) $user->roles as $role_slug ) {
-			$role = get_role( $role_slug );
-			if ( $role && ! empty( $role->capabilities['manage_options'] ) ) {
+			if ( ! isset( $provisionable[ $role_slug ] ) ) {
 				$user->set_role( AgentID_Auth::safe_default_role() );
 				return;
 			}
@@ -203,11 +258,11 @@ class AgentID_Guards {
 			return;
 		}
 		?>
-		<h2><?php echo esc_html__( 'AgentID', 'agent-sso-for-agentid' ); ?></h2>
+		<h2><?php echo esc_html__( 'AgentID', 'agentic-agent-sso' ); ?></h2>
 		<table class="form-table" role="presentation">
 			<?php if ( $is_agent ) : ?>
 				<tr>
-					<th><?php echo esc_html__( 'Agent identity', 'agent-sso-for-agentid' ); ?></th>
+					<th><?php echo esc_html__( 'Agent identity', 'agentic-agent-sso' ); ?></th>
 					<td>
 						<code><?php echo esc_html( (string) get_user_meta( $profile_user->ID, 'agentid_sub', true ) ); ?></code>
 						<p class="description">
@@ -217,12 +272,12 @@ class AgentID_Guards {
 							if ( '' !== $owner_name || '' !== $owner_email ) {
 								printf(
 									/* translators: 1: owner name, 2: owner email */
-									esc_html__( 'Owner on record: %1$s (%2$s). This account signs in only with AgentID; passwords, password resets and application passwords are disabled for it.', 'agent-sso-for-agentid' ),
+									esc_html__( 'Owner on record: %1$s (%2$s). This account signs in only with AgentID; passwords, password resets and application passwords are disabled for it.', 'agentic-agent-sso' ),
 									esc_html( $owner_name ),
 									esc_html( $owner_email )
 								);
 							} else {
-								echo esc_html__( 'This account signs in only with AgentID; passwords, password resets and application passwords are disabled for it.', 'agent-sso-for-agentid' );
+								echo esc_html__( 'This account signs in only with AgentID; passwords, password resets and application passwords are disabled for it.', 'agentic-agent-sso' );
 							}
 							?>
 						</p>
@@ -231,17 +286,17 @@ class AgentID_Guards {
 			<?php endif; ?>
 			<?php if ( (int) get_current_user_id() === (int) $profile_user->ID && agentid_sso_is_configured() ) : ?>
 				<tr>
-					<th><?php echo esc_html__( 'Link your agent', 'agent-sso-for-agentid' ); ?></th>
+					<th><?php echo esc_html__( 'Link your agent', 'agentic-agent-sso' ); ?></th>
 					<td>
 						<?php if ( '' !== $linked_sub ) : ?>
 							<code><?php echo esc_html( $linked_sub ); ?></code>
-							<p class="description"><?php echo esc_html__( 'This agent identity is linked to your account as its owner.', 'agent-sso-for-agentid' ); ?></p>
+							<p class="description"><?php echo esc_html__( 'This agent identity is linked to your account as its owner.', 'agentic-agent-sso' ); ?></p>
 						<?php else : ?>
-							<a class="button" href="<?php echo esc_url( add_query_arg( 'agentid_link_nonce', wp_create_nonce( 'agentid_link_start' ), agentid_sso_start_url( '', 'link' ) ) ); ?>"><?php echo esc_html__( 'Link an AgentID agent', 'agent-sso-for-agentid' ); ?></a>
-							<p class="description"><?php echo esc_html__( 'Signs you through AgentID once and records that agent as yours. The agent still gets its own account on this site — it never signs in as you.', 'agent-sso-for-agentid' ); ?></p>
+							<a class="button" href="<?php echo esc_url( add_query_arg( 'agentid_link_nonce', wp_create_nonce( 'agentid_link_start' ), agentid_sso_start_url( '', 'link' ) ) ); ?>"><?php echo esc_html__( 'Link an AgentID agent', 'agentic-agent-sso' ); ?></a>
+							<p class="description"><?php echo esc_html__( 'Signs you through AgentID once and records that agent as yours. The agent still gets its own account on this site — it never signs in as you.', 'agentic-agent-sso' ); ?></p>
 						<?php endif; ?>
 						<?php if ( isset( $_GET['agentid_linked'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Confirmation banner only. ?>
-							<p><strong><?php echo esc_html__( 'Agent linked.', 'agent-sso-for-agentid' ); ?></strong></p>
+							<p><strong><?php echo esc_html__( 'Agent linked.', 'agentic-agent-sso' ); ?></strong></p>
 						<?php endif; ?>
 					</td>
 				</tr>
