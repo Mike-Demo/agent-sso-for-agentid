@@ -57,3 +57,38 @@ blueprint in `tests/playground-blueprint.json`):
 - [ ] **Plugin Check plugin** run on the test install (the official
       WP.org pre-submission checker) and a screenshot set for the
       .org listing.
+
+WordPress.org submission compliance (checked 2026-10-14 against
+https://wordpress.org/plugins/developers/add/ and the guidelines it
+binds — no submission made yet):
+
+- [x] The page's three named rejection causes audited in code and
+      enforced by tooling: output escaping, input sanitization,
+      nonces + capability checks on all form/AJAX handling (a forged
+      nonce was verified rejected in the Playground run above; PHPCS
+      with the WordPress standard is clean).
+- [x] readme.txt required headers all present; short description
+      trimmed to 141 characters after Plugin Check flagged truncation
+      at 150; tags trimmed to 5.
+- [x] External-service disclosure (Guideline 6) names every endpoint,
+      the data sent/received, and links AgentID's actual Terms
+      (agentid.com/legal/terms) and Privacy Policy
+      (agentid.com/legal/privacy) — both URLs verified live.
+- [x] LICENSE now carries the full GPLv2 text (it previously held a
+      short notice only). No trialware or locked features anywhere.
+- [x] **Official Plugin Check plugin (v2.1.0) run in Playground**:
+      29 of 34 checks executed (the 5 runtime enqueue checks cannot
+      run in the single-worker Playground server — NOT VERIFIED here;
+      enqueue behaviour itself was verified manually on the login
+      page). Against the shipped file set: **0 errors, 0 warnings**.
+      Raw run against the dev tree flagged only files that are
+      excluded from the release zip (tests/, phpcs.xml.dist,
+      TESTING.md) plus three real items, all fixed: missing
+      languages/ folder for the Domain Path header (added), readme
+      short-description length (trimmed), and a justified
+      `phpcs:ignore` for deliberately firing core's `wp_login`
+      action after an AgentID sign-in. Fixes re-verified by
+      re-running the affected checks.
+- [ ] Still outstanding for submission: AgentMail's written OK to the
+      AgentID name/slug, and the Copilot full code review already
+      commissioned on GitHub issue #1.

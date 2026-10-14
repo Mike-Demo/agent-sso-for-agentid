@@ -268,7 +268,7 @@ class AgentID_Auth {
 		wp_set_current_user( $user->ID );
 		wp_set_auth_cookie( $user->ID, false );
 		/** This action is documented in wp-includes/user.php */
-		do_action( 'wp_login', $user->user_login, $user );
+		do_action( 'wp_login', $user->user_login, $user ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Deliberately firing core's wp_login action so login auditing and other plugins observe AgentID sign-ins exactly like password sign-ins.
 
 		$target = ! empty( $flow['redirect_to'] ) ? (string) $flow['redirect_to'] : home_url( '/' );
 		wp_safe_redirect( wp_validate_redirect( $target, home_url( '/' ) ) );

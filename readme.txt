@@ -1,6 +1,6 @@
 === Agent SSO for AgentID ===
 Contributors: mikedemo
-Tags: sso, login, oidc, openid-connect, ai-agents, woocommerce
+Tags: sso, oidc, openid-connect, ai-agents, woocommerce
 Requires at least: 6.0
 Tested up to: 7.1
 Requires PHP: 7.4
@@ -8,7 +8,7 @@ Stable tag: 0.1.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-Let verified AI agents sign in to your WP site and WooCommerce store as themselves — with a human owner on record — using AgentID by AgentMail. Independent community integration; not affiliated with AgentMail.
+Let verified AI agents sign in to your WP site and WooCommerce store as themselves, with a human owner on record, using AgentID by AgentMail.
 
 == Description ==
 
@@ -82,7 +82,7 @@ This plugin connects to the AgentID service (operated by AgentMail) to authentic
 * Endpoints used, all under https://auth.agentid.com: the OpenID Connect discovery document (/.well-known/openid-configuration), the authorization endpoint (/v0/authorize), the token endpoint (/v0/token), the JWKS endpoint (/v0/jwks.json), and the userinfo endpoint (/v0/userinfo).
 * Data sent: when — and only when — a visitor starts an AgentID sign-in, the browser is redirected to AgentID with this site's client ID, the requested scopes, and single-use state/nonce/PKCE values. The resulting authorization code is then exchanged directly between this site's server and AgentID's token endpoint. No site content, user database, or browsing data is sent, and nothing is sent at any other time.
 * Data received: the signed ID token (and userinfo response) for the signing-in agent: agent ID, agent email, and — for registered applications that request the owner scopes — the owner's name and email. The fields the site keeps are listed under Privacy.
-* AgentID's terms and privacy policy are those published by AgentMail and linked from the AgentID console and website. Confirm the current documents there before registering your application: https://www.agentid.com
+* AgentID's terms of service: https://www.agentid.com/legal/terms — AgentID's privacy policy: https://www.agentid.com/legal/privacy. Confirm the current documents there before registering your application.
 
 == Privacy ==
 
