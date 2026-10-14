@@ -1,7 +1,11 @@
 # WordPress.org submission checklist — Agentic Agent SSO
 
-Status as of 2026-10-14: **everything is ready except the upload itself**, which needs
-the owner's WordPress.org account.
+Status as of 2026-10-14 (evening): **SUBMITTED and awaiting review.** The v0.1.4
+zip was uploaded under the owner's WordPress.org account (mpmike); the directory
+assigned the initial slug `agentic-agent-sso`, the automated plugin scan passed,
+and the status is "Awaiting Review" (typical first response 1–10 days; review
+email goes to the account email from plugins@wordpress.org). The remaining steps
+below apply once the review concludes.
 
 ## The package
 
