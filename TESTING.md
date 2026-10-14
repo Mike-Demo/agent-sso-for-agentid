@@ -16,15 +16,36 @@ Verified during the v0.1.0 build (2026-10-14):
 - [x] Product-name audit: "WordPress" appears in no product name, slug,
       repo name, or title — "WP" is used instead.
 
-Still needed before a WP.org submission:
+WP Playground run (2026-10-14, Playground CLI 3.1.58, WP latest, PHP 8.3;
+blueprint in `tests/playground-blueprint.json`):
 
-- [ ] **Live end-to-end test** on a real (self-hosted) WP install:
-      install the zip, complete the setup wizard, and run a real agent
-      sign-in, a WooCommerce login, an owner link, and each guard
-      (password sign-in refused, admin demotion, session length).
-      Needs: a throwaway self-hosted WP site + a dedicated AgentID
-      application for that site, created by the site owner in
-      console.agentid.com with the redirect URI the settings page shows.
+- [x] Site boots with the plugin mounted and activated — no fatals.
+- [x] Settings page renders; options saved by the blueprint appear in the
+      form; the page shows the exact redirect URI to register.
+- [x] "Sign in with AgentID" button renders on the WP login form.
+- [x] **Test Connection succeeds against the live issuer** — discovery +
+      JWKS fetched, 1 signing key reported. Note: in Cane's VM all
+      outbound HTTPS from Playground PHP initially failed (TLS error)
+      because the VM only permits egress via its HTTP proxy; defining
+      WP's standard `WP_PROXY_HOST` / `WP_PROXY_PORT` / `WP_PROXY_USERNAME`
+      / `WP_PROXY_PASSWORD` constants for the Playground process fixed it.
+      On a normal machine no workaround is needed. Host curl to the same
+      URLs worked throughout, confirming an environment quirk, not a
+      plugin or AgentID problem.
+- [x] **Flow start verified**: starting a sign-in redirects to
+      `https://auth.agentid.com/v0/authorize` with the correct
+      response_type, client_id, redirect_uri, scopes (incl. owner
+      scopes), state, nonce, and PKCE S256 challenge. AgentID answered
+      403 for the dummy client ID, as expected.
+- [ ] **Full sign-in with a real app** (the one remaining leg): register
+      a real AgentID application with redirect URI
+      `http://127.0.0.1:9400/wp-admin/admin-post.php?action=agentid_callback`
+      (the Playground URL; whether AgentID accepts a loopback http
+      redirect URI is itself part of the test), put its client ID/secret
+      in the plugin settings, and complete a sign-in as a real agent.
+      Also still to exercise live: WooCommerce login, owner link, and
+      each guard (password sign-in refused, admin demotion, session
+      length).
 - [ ] **AgentMail permission**: written OK from AgentMail to use the
       AgentID name in the plugin name/slug, or fall back to a purely
       descriptive name before submitting.
