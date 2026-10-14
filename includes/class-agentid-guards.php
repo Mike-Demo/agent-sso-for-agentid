@@ -240,7 +240,13 @@ class AgentID_Guards {
 		$provisionable = AgentID_Settings::provisionable_roles();
 		foreach ( (array) $user->roles as $role_slug ) {
 			if ( ! isset( $provisionable[ $role_slug ] ) ) {
-				$user->set_role( AgentID_Auth::safe_default_role() );
+				$role = AgentID_Auth::safe_default_role();
+				if ( null !== $role ) {
+					$user->set_role( $role );
+				}
+				// No safe role exists: leave the role untouched —
+				// the capability ceiling still hard-denies
+				// site administration for this account.
 				return;
 			}
 		}

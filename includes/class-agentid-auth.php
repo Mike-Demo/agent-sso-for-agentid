@@ -60,6 +60,23 @@ class AgentID_Auth {
 	}
 
 	/**
+	 * Cookie path for the flow cookie.
+	 *
+	 * COOKIEPATH is derived from the home URL, but the callback
+	 * lives under admin_url() — on installs where the two paths
+	 * differ (home in one directory, WordPress core in another)
+	 * a COOKIEPATH-scoped cookie never reaches admin-post.php and
+	 * every callback fails the state check. The cookie carries
+	 * only a hash of the single-use state and lives ten minutes,
+	 * so scoping it to the host root is the safe choice.
+	 *
+	 * @return string
+	 */
+	private static function flow_cookie_path() {
+		return '/';
+	}
+
+	/**
 	 * Redirect to wp-login with an error code and stop.
 	 *
 	 * @param string $code Error code slug.
@@ -89,8 +106,8 @@ class AgentID_Auth {
 			'denied'          => __( 'The sign-in was cancelled at AgentID.', 'agentic-agent-sso' ),
 			'token'           => __( 'AgentID did not complete the sign-in. Please start again.', 'agentic-agent-sso' ),
 			'verify'          => __( 'The AgentID identity could not be verified.', 'agentic-agent-sso' ),
-			'no_email'        => __( 'AgentID did not return an email address for this agent, so an account cannot be created. Ask the site owner to request the email scope.', 'agentic-agent-sso' ),
 			'email_taken'     => __( 'The agent\'s email address already belongs to a different account on this site, so sign-in was refused. Ask the site owner to resolve the conflict.', 'agentic-agent-sso' ),
+			'no_role'         => __( 'No role on this site is available for agent accounts right now, so sign-in was refused. Ask the site owner to check the plugin settings.', 'agentic-agent-sso' ),
 			'disabled'        => __( 'This agent account has been disabled by the site owner.', 'agentic-agent-sso' ),
 			'provision'       => __( 'An account could not be created for this agent.', 'agentic-agent-sso' ),
 			'link_no_user'    => __( 'Please sign in to your account first, then start linking again.', 'agentic-agent-sso' ),
@@ -173,7 +190,7 @@ class AgentID_Auth {
 			hash( 'sha256', $state ),
 			array(
 				'expires'  => time() + self::FLOW_TTL,
-				'path'     => COOKIEPATH ? COOKIEPATH : '/',
+				'path'     => self::flow_cookie_path(),
 				'secure'   => is_ssl(),
 				'httponly' => true,
 				'samesite' => 'Lax',
@@ -222,7 +239,7 @@ class AgentID_Auth {
 			'',
 			array(
 				'expires'  => time() - HOUR_IN_SECONDS,
-				'path'     => COOKIEPATH ? COOKIEPATH : '/',
+				'path'     => self::flow_cookie_path(),
 				'secure'   => is_ssl(),
 				'httponly' => true,
 				'samesite' => 'Lax',
@@ -356,18 +373,21 @@ class AgentID_Auth {
 	}
 
 	/**
-	 * Resolve the provisionable role: configured role, refused if it
-	 * can administer the site.
+	 * Resolve the provisionable role: the configured role when an
+	 * agent may hold it, otherwise the validated fallback from
+	 * AgentID_Settings::fallback_role(). Returns null when no safe
+	 * role exists at all — callers must refuse rather than assign
+	 * an unvalidated or nonexistent role.
 	 *
-	 * @return string
+	 * @return string|null
 	 */
 	public static function safe_default_role() {
 		$role  = (string) agentid_sso_get_option( 'default_role', 'subscriber' );
 		$roles = AgentID_Settings::provisionable_roles();
-		if ( ! array_key_exists( $role, $roles ) ) {
-			return 'subscriber';
+		if ( array_key_exists( $role, $roles ) ) {
+			return $role;
 		}
-		return $role;
+		return AgentID_Settings::fallback_role();
 	}
 
 	/**
@@ -400,6 +420,50 @@ class AgentID_Auth {
 	}
 
 	/**
+	 * Reconnect an account retained across an uninstall.
+	 *
+	 * Uninstall keeps agent user accounts but removes their
+	 * identity meta, so after a reinstall the same agent would be
+	 * refused with email_taken forever. Undoing that automatically
+	 * is only safe for placeholder accounts: the placeholder
+	 * address is a hash of THIS subject, an address only this
+	 * plugin creates, so the account holding it can only be this
+	 * agent's retained account. Verified-email collisions still
+	 * need a human admin (see the readme FAQ) — an agent is never
+	 * signed in to an existing account by email alone.
+	 *
+	 * @param int    $user_id     Existing account ID.
+	 * @param string $email       Email from the current claims.
+	 * @param string $placeholder This subject's placeholder address.
+	 * @param array  $claims      Verified claims.
+	 * @return WP_User|false The reconnected user, or false.
+	 */
+	private static function reconnect_retained_account( $user_id, $email, $placeholder, array $claims ) {
+		if ( $email !== $placeholder ) {
+			return false;
+		}
+		if ( '' !== (string) get_user_meta( $user_id, 'agentid_sub', true ) ) {
+			// Already mapped to a subject — not a retained shell.
+			return false;
+		}
+		$user = get_user_by( 'id', $user_id );
+		if ( ! $user ) {
+			return false;
+		}
+		update_user_meta( $user_id, 'agentid_is_agent', 1 );
+		$provisionable = AgentID_Settings::provisionable_roles();
+		$keeps_role    = array_intersect( (array) $user->roles, array_keys( $provisionable ) );
+		if ( empty( $keeps_role ) ) {
+			$role = self::safe_default_role();
+			if ( null !== $role ) {
+				$user->set_role( $role );
+			}
+		}
+		self::refresh_agent_meta( $user_id, $claims );
+		return $user;
+	}
+
+	/**
 	 * Create the agent's own WP account from verified claims.
 	 *
 	 * @param array $claims Verified claims.
@@ -414,14 +478,20 @@ class AgentID_Auth {
 				$email = $candidate;
 			}
 		}
+		$placeholder = 'agentid-' . substr( hash( 'sha256', (string) $claims['sub'] ), 0, 16 ) . '@agentid.invalid';
 		if ( '' === $email ) {
 			// The agent's email claim is absent or unverified: never
 			// present it as an established contact address. The account
 			// is keyed by the immutable subject, so a site-controlled,
 			// non-deliverable placeholder derived from the sub works.
-			$email = 'agentid-' . substr( hash( 'sha256', (string) $claims['sub'] ), 0, 16 ) . '@agentid.invalid';
+			$email = $placeholder;
 		}
-		if ( email_exists( $email ) ) {
+		$existing_id = email_exists( $email );
+		if ( $existing_id ) {
+			$reconnected = self::reconnect_retained_account( (int) $existing_id, $email, $placeholder, $claims );
+			if ( $reconnected ) {
+				return $reconnected;
+			}
 			// Never sign an agent in to an existing account by email,
 			// and never shadow one either. A human admin resolves it.
 			return new WP_Error( 'email_taken', 'Agent email already in use.' );
@@ -437,11 +507,14 @@ class AgentID_Auth {
 		if ( '' === $base ) {
 			$base = 'agent-' . strtolower( substr( preg_replace( '/[^a-zA-Z0-9]/', '', (string) $claims['sub'] ), 0, 8 ) );
 		}
-		$username = $base;
+		// user_login is capped at 60 characters: bound the base so
+		// the collision suffix always fits inside the cap.
+		$username = substr( $base, 0, 60 );
 		$suffix   = 1;
 		while ( username_exists( $username ) ) {
 			++$suffix;
-			$username = $base . '-' . $suffix;
+			$tail     = '-' . $suffix;
+			$username = substr( $base, 0, 60 - strlen( $tail ) ) . $tail;
 		}
 
 		$display = isset( $claims['name'] ) && is_string( $claims['name'] ) && '' !== $claims['name']
@@ -452,13 +525,18 @@ class AgentID_Auth {
 			$display = sprintf( __( '%1$s (agent of %2$s)', 'agentic-agent-sso' ), $display, sanitize_text_field( $claims['owner_name'] ) );
 		}
 
+		$role = self::safe_default_role();
+		if ( null === $role ) {
+			return new WP_Error( 'no_role', 'No provisionable role available.' );
+		}
+
 		$user_id = wp_insert_user(
 			array(
 				'user_login'   => $username,
 				'user_pass'    => wp_generate_password( 32, true, true ),
 				'user_email'   => $email,
 				'display_name' => $display,
-				'role'         => self::safe_default_role(),
+				'role'         => $role,
 			)
 		);
 		if ( is_wp_error( $user_id ) ) {

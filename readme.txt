@@ -4,7 +4,7 @@ Tags: sso, oidc, openid-connect, ai-agents, woocommerce
 Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.2
+Stable tag: 0.1.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -40,7 +40,7 @@ Agentic Agent SSO is an independent, open-source community project. It is **not*
 = Safety defaults (built in, not upsells) =
 
 * Agent accounts can never be provisioned with a role that can administer the site — and if one is ever promoted to such a role, it is demoted at its next sign-in.
-* An agent account's capabilities are capped at its owner's capabilities.
+* When an agent's owner is recorded, its capabilities are capped at the owner's; site-administration capabilities are denied to every agent account regardless.
 * Agent accounts cannot sign in with a password, reset a password, or use application passwords. AgentID is the only way in.
 * Agent sessions are short (12 hours by default, configurable 1–72), because revoking an agent at AgentID stops new sign-ins but does not end sessions a site has already issued.
 
@@ -64,7 +64,7 @@ No — and no plugin could. Registering an application asserts ownership of a si
 
 = Does an agent sign in as its owner? =
 
-No. The agent gets its own account on your site. The account records who the owner is (when AgentID returns owner details), and its permissions are capped at the owner's — but the agent never receives the owner's credentials or session.
+No. The agent gets its own account on your site. The account records who the owner is (when AgentID returns owner details), and its permissions are capped at the owner's when one is recorded — but the agent never receives the owner's credentials or session.
 
 = What happens if an agent is revoked at AgentID? =
 
@@ -73,6 +73,10 @@ It can no longer start new sign-ins. A session your site already issued runs unt
 = Does this work with WooCommerce? =
 
 Yes. With WooCommerce active, the button also appears on the WooCommerce login form, and agent accounts are ordinary WP users, so customer-role provisioning and My Account work as expected. HPOS compatibility is declared.
+
+= What happens to agent accounts if I uninstall and reinstall? =
+
+Uninstall keeps the agent user accounts (they belong to your site) but removes their AgentID identity data. On reinstall, an agent whose account used a placeholder email address reconnects to its retained account automatically on its next sign-in — the placeholder is derived from the agent's immutable ID, so it can only match that agent's own account. An agent whose account used a verified email address cannot be matched automatically (an agent is never signed in to an existing account by email alone); an administrator can reconnect it by adding the agent's subject ID as the `agentid_sub` user meta on the retained account, or delete the retained account and let it be re-created on the next sign-in.
 
 = Is this an official AgentMail plugin? =
 
@@ -93,11 +97,14 @@ This plugin connects to the AgentID service (operated by AgentMail) to authentic
 
 This plugin does not track visitors, does not phone home, and contains no analytics.
 
-For agent accounts it creates or signs in, the plugin stores these user meta fields from the verified AgentID sign-in: agent subject ID, actor type, agent email (as the account email), owner subject ID, owner name, owner email, the linked owner account ID when matched, and the time of the last sign-in. When a site user links an agent from their profile, the agent's subject ID is also stored on that user's account (the linked-subject field). During a sign-in, the plugin sets a short-lived browser cookie (10 minutes) that binds the flow to the browser, and stores the flow state in a transient for the same period; the transient is deleted on first use and the cookie expires with the flow. Tokens issued by AgentID are never stored; the client secret you enter is stored in the site's options table, like other SSO credentials, and is never displayed after saving.
+For agent accounts it creates or signs in, the plugin stores these user meta fields from the verified AgentID sign-in: agent subject ID, actor type, agent email, owner subject ID, owner name, owner email, the linked owner account ID when matched, and the time of the last sign-in. The account email is chosen at provisioning: the agent's verified email when AgentID returns one, otherwise a synthetic placeholder address derived from the agent's subject ID on a non-deliverable domain. The account email is not changed on later sign-ins. When a site user links an agent from their profile, the agent's subject ID is also stored on that user's account (the linked-subject field). During a sign-in, the plugin sets a short-lived browser cookie (10 minutes) that binds the flow to the browser, and stores the flow state in a transient for the same period; the transient is deleted on first use and the cookie expires with the flow. Tokens issued by AgentID are never stored; the client secret you enter is stored in the site's options table, like other SSO credentials, and is never displayed after saving.
 
 Suggested privacy-policy text: "If you sign in with AgentID, we receive your agent identity and your owner's name and email from AgentID (operated by AgentMail) and store them with your account so we can identify you and your owner."
 
 == Upgrade Notice ==
+
+= 0.1.3 =
+Quality fixes from an external review: sign-in now works on installs where the WordPress core path differs from the home path, credentials with special characters survive saving and token exchange, and agent accounts retained across an uninstall reconnect on their next sign-in. Recommended for all sites.
 
 = 0.1.2 =
 Renamed to Agentic Agent SSO. The Gutenberg block now loads correctly in the editor, agent accounts are denied the full set of site-administration capabilities (not just one), and explicitly linked agents always receive their owner's capability ceiling. Recommended for all sites.
@@ -106,6 +113,15 @@ Renamed to Agentic Agent SSO. The Gutenberg block now loads correctly in the edi
 Security hardening release: unconditional denial of site-administration capability for agent accounts, stricter ID token validation, and multisite-safe uninstall.
 
 == Changelog ==
+
+= 0.1.3 =
+* Fixed: the sign-in flow cookie is now scoped to the host root. On installs where the WordPress core path differs from the home path, the cookie previously never reached the callback and every sign-in failed its state check.
+* Fixed: client credentials are stored byte-for-byte (the settings sanitizer no longer unslashes twice or strips percent sequences from the client secret), and the token exchange now form-encodes the client ID and secret for HTTP Basic as RFC 6749 requires, so credentials containing characters such as a colon, plus, backslash or percent sign work.
+* Fixed: agent usernames are bounded to WordPress's 60-character login limit, including the collision suffix, so agents with long preferred usernames can be provisioned.
+* Fixed: the fallback role for agent accounts is always validated against the provisionable set (least-privileged stock role available); when no safe role exists, provisioning refuses with a clear error instead of assigning an unvalidated role.
+* Fixed: the WooCommerce login button now returns customers to My Account — or back to checkout when the form was shown there — instead of the homepage.
+* Fixed: an agent account retained across an uninstall (placeholder email address) reconnects automatically on its next sign-in instead of being refused forever; verified-email accounts still require an administrator to reconnect them (see the FAQ).
+* Improved: the settings connection test no longer fetches the discovery document twice; an unreachable legacy error message was removed; documentation of the owner capability ceiling and of placeholder account emails was corrected.
 
 = 0.1.2 =
 * Renamed: the plugin is now "Agentic Agent SSO" (slug agentic-agent-sso). The name no longer builds on the AgentID trademark; AgentID is still the service it connects to and is credited as such. Settings, options and account data are unchanged.

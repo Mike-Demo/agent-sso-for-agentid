@@ -82,7 +82,16 @@ class AgentID_Button {
 			return;
 		}
 		self::enqueue_css();
-		echo self::html(); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped inside html().
+		// Send the customer back where they were headed: checkout
+		// when the form is embedded there, My Account otherwise.
+		// The homepage default broke the WooCommerce journey.
+		$redirect = '';
+		if ( function_exists( 'is_checkout' ) && is_checkout() && function_exists( 'wc_get_checkout_url' ) ) {
+			$redirect = (string) wc_get_checkout_url();
+		} elseif ( function_exists( 'wc_get_page_permalink' ) ) {
+			$redirect = (string) wc_get_page_permalink( 'myaccount' );
+		}
+		echo self::html( $redirect ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- Escaped inside html().
 	}
 
 	/**

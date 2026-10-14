@@ -19,8 +19,8 @@ made by, affiliated with, endorsed by, or sponsored by AgentMail, and it is not 
 official AgentID product.** AgentID and AgentMail are trademarks of their
 respective owners; both names appear in this project only to describe the service
 the plugin connects to. Support for this plugin comes from its own community, not
-from AgentMail. (The plugin was renamed from "Agent SSO for AgentID" in v0.1.2 so
-its name stands on its own rather than building on the AgentID trademark.)
+from AgentMail. (The plugin was renamed in v0.1.2 so its name stands on its own
+rather than building on the AgentID trademark.)
 
 ## How it works
 
@@ -42,8 +42,10 @@ plugin ships the guardrails in the free version, on purpose:
 
 - **Never admin.** Agents are never provisioned with a role that can administer
   the site; an agent account promoted to one is demoted at its next sign-in.
-- **Capability ceiling.** An agent account's capabilities are capped at its
-  owner's capabilities (no confused-deputy escalation).
+- **Capability ceiling.** When the agent's owner is recorded, the account's
+  capabilities are capped at the owner's (no confused-deputy escalation);
+  site-administration capabilities are hard-denied for every agent account,
+  owner or not.
 - **AgentID is the only way in.** Agent accounts cannot use password sign-in,
   password resets, or application passwords. Users are matched by the immutable
   AgentID subject (`sub`), never by email alone; email collisions fail closed.

@@ -5,7 +5,10 @@
  * Removes the plugin's options and cached transients. User accounts
  * created for agents are intentionally left in place — they belong to
  * the site — but their AgentID identity meta is removed so a later
- * reinstall starts from a clean slate.
+ * reinstall starts from a clean slate. On reinstall, accounts whose
+ * email is the subject-derived placeholder reconnect automatically
+ * (see AgentID_Auth::reconnect_retained_account()); accounts with a
+ * verified email need an administrator to reconnect them (readme FAQ).
  *
  * @package AgenticAgentSSO
  */

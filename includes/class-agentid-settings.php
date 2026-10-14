@@ -82,6 +82,26 @@ class AgentID_Settings {
 	}
 
 	/**
+	 * A fallback provisioning role, always validated against the
+	 * provisionable set: the least-privileged of the stock roles an
+	 * agent may hold, or null when none of them is available (a role
+	 * editor granted Subscriber a hard-denied capability, or the
+	 * role was removed). Callers must treat null as "no safe role
+	 * exists" rather than inventing one.
+	 *
+	 * @return string|null
+	 */
+	public static function fallback_role() {
+		$roles = self::provisionable_roles();
+		foreach ( array( 'subscriber', 'contributor', 'author' ) as $candidate ) {
+			if ( array_key_exists( $candidate, $roles ) ) {
+				return $candidate;
+			}
+		}
+		return null;
+	}
+
+	/**
 	 * Sanitize the options array.
 	 *
 	 * @param mixed $input Raw input.
@@ -97,10 +117,17 @@ class AgentID_Settings {
 		}
 		$out = agentid_sso_default_options();
 
-		$out['client_id'] = isset( $input['client_id'] ) ? sanitize_text_field( wp_unslash( $input['client_id'] ) ) : '';
+		// The Settings API hands this callback values that options.php
+		// has already unslashed, so do NOT unslash again (a second pass
+		// eats literal backslashes). Credentials are opaque byte
+		// strings: sanitize_text_field() would also strip percent
+		// sequences and tags from them, silently changing a valid
+		// secret into a wrong one. Accept strings verbatim apart from
+		// surrounding whitespace, which is never part of a credential.
+		$out['client_id'] = isset( $input['client_id'] ) && is_string( $input['client_id'] ) ? trim( $input['client_id'], " \t\n\r\0\x0B" ) : '';
 
 		// An empty secret field means "keep the stored secret".
-		$submitted_secret = isset( $input['client_secret'] ) ? sanitize_text_field( wp_unslash( $input['client_secret'] ) ) : '';
+		$submitted_secret = isset( $input['client_secret'] ) && is_string( $input['client_secret'] ) ? trim( $input['client_secret'], " \t\n\r\0\x0B" ) : '';
 		if ( '' !== $submitted_secret ) {
 			$out['client_secret'] = $submitted_secret;
 		} elseif ( ! empty( $input['clear_secret'] ) ) {
@@ -109,7 +136,7 @@ class AgentID_Settings {
 			$out['client_secret'] = isset( $existing['client_secret'] ) ? (string) $existing['client_secret'] : '';
 		}
 
-		$scopes = isset( $input['scopes'] ) ? sanitize_text_field( wp_unslash( $input['scopes'] ) ) : '';
+		$scopes = isset( $input['scopes'] ) && is_string( $input['scopes'] ) ? sanitize_text_field( $input['scopes'] ) : '';
 		$parts  = array_filter( array_map( 'trim', explode( ' ', $scopes ) ) );
 		if ( ! in_array( 'openid', $parts, true ) ) {
 			array_unshift( $parts, 'openid' );
@@ -118,9 +145,16 @@ class AgentID_Settings {
 		$parts          = array_values( array_intersect( $parts, $allowed_scopes ) );
 		$out['scopes']  = implode( ' ', $parts );
 
-		$role = isset( $input['default_role'] ) ? sanitize_key( wp_unslash( $input['default_role'] ) ) : 'subscriber';
+		$role = isset( $input['default_role'] ) && is_string( $input['default_role'] ) ? sanitize_key( $input['default_role'] ) : '';
 		if ( ! array_key_exists( $role, self::provisionable_roles() ) ) {
-			$role = 'subscriber';
+			// Never substitute an unvalidated role: use the validated
+			// fallback, or keep the requested value when no safe role
+			// exists at all (provisioning then fails with a clear
+			// error instead of assigning a rejected role).
+			$fallback = self::fallback_role();
+			if ( null !== $fallback ) {
+				$role = $fallback;
+			}
 		}
 		$out['default_role'] = $role;
 
@@ -199,7 +233,7 @@ class AgentID_Settings {
 		if ( is_wp_error( $discovery ) ) {
 			wp_send_json_error( array( 'message' => $discovery->get_error_message() ) );
 		}
-		$jwks = AgentID_OIDC::jwks( true );
+		$jwks = AgentID_OIDC::jwks( true, $discovery );
 		if ( is_wp_error( $jwks ) ) {
 			wp_send_json_error( array( 'message' => $jwks->get_error_message() ) );
 		}

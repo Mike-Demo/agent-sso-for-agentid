@@ -70,17 +70,23 @@ class AgentID_OIDC {
 	/**
 	 * Fetch (and cache) the issuer JWKS.
 	 *
-	 * @param bool $force Skip the cache.
+	 * @param bool       $force           Skip the cache.
+	 * @param array|null $known_discovery An already-fetched discovery
+	 *                                    document to reuse instead of
+	 *                                    fetching it again (the
+	 *                                    settings connection test
+	 *                                    validates discovery and JWKS
+	 *                                    back to back).
 	 * @return array|WP_Error JWKS document with a "keys" array.
 	 */
-	public static function jwks( $force = false ) {
+	public static function jwks( $force = false, $known_discovery = null ) {
 		if ( ! $force ) {
 			$cached = get_transient( 'agentid_sso_jwks' );
 			if ( is_array( $cached ) && ! empty( $cached['keys'] ) ) {
 				return $cached;
 			}
 		}
-		$discovery = self::discovery( $force );
+		$discovery = is_array( $known_discovery ) ? $known_discovery : self::discovery( $force );
 		if ( is_wp_error( $discovery ) ) {
 			return $discovery;
 		}
@@ -341,8 +347,12 @@ class AgentID_OIDC {
 		);
 		$headers = array( 'Accept' => 'application/json' );
 		if ( '' !== (string) $secret ) {
-			// client_secret_basic.
-			$headers['Authorization'] = 'Basic ' . base64_encode( $client_id . ':' . $secret ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
+			// client_secret_basic. RFC 6749 section 2.3.1: each
+			// credential is form-encoded BEFORE the two are joined
+			// with a colon — otherwise a colon inside the client ID
+			// is ambiguous, and a plus or percent sequence in either
+			// value is misread by a conforming server.
+			$headers['Authorization'] = 'Basic ' . base64_encode( rawurlencode( (string) $client_id ) . ':' . rawurlencode( (string) $secret ) ); // phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.obfuscation_base64_encode
 		} else {
 			$body['client_id'] = $client_id;
 		}
