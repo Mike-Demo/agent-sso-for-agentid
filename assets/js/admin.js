@@ -1,6 +1,33 @@
 (function () {
 	'use strict';
 
+	var strings = window.agentidSsoAdmin || {};
+
+	function showCopyResult(button, ok) {
+		button.textContent = ok ? strings.copied || 'Copied' : strings.copyFailed || 'Copy failed';
+		setTimeout(function () {
+			button.textContent = strings.copy || 'Copy';
+		}, 2500);
+	}
+
+	function fallbackCopy(text) {
+		var area = document.createElement('textarea');
+		area.value = text;
+		area.setAttribute('readonly', '');
+		area.style.position = 'absolute';
+		area.style.left = '-9999px';
+		document.body.appendChild(area);
+		area.select();
+		var ok = false;
+		try {
+			ok = document.execCommand('copy');
+		} catch (e) {
+			ok = false;
+		}
+		document.body.removeChild(area);
+		return ok;
+	}
+
 	function copyFromTarget(button) {
 		var target = document.getElementById(button.getAttribute('data-copy-target'));
 		if (!target) {
@@ -8,12 +35,17 @@
 		}
 		var text = target.textContent.trim();
 		if (navigator.clipboard && navigator.clipboard.writeText) {
-			navigator.clipboard.writeText(text);
+			navigator.clipboard.writeText(text).then(
+				function () {
+					showCopyResult(button, true);
+				},
+				function () {
+					showCopyResult(button, fallbackCopy(text));
+				}
+			);
+		} else {
+			showCopyResult(button, fallbackCopy(text));
 		}
-		button.textContent = 'Copied';
-		setTimeout(function () {
-			button.textContent = 'Copy';
-		}, 2000);
 	}
 
 	document.querySelectorAll('[data-copy-target]').forEach(function (button) {
@@ -40,16 +72,14 @@
 					return response.json();
 				})
 				.then(function (data) {
-					if (data && data.success && data.data && data.data.message) {
-						result.textContent = data.data.message;
-					} else if (data && data.data && data.data.message) {
+					if (data && data.data && data.data.message) {
 						result.textContent = data.data.message;
 					} else {
-						result.textContent = 'Test failed.';
+						result.textContent = strings.testFailed || 'Test failed.';
 					}
 				})
 				.catch(function () {
-					result.textContent = 'Test failed.';
+					result.textContent = strings.testFailed || 'Test failed.';
 				});
 		});
 	}

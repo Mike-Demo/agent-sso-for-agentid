@@ -130,11 +130,15 @@ class AgentID_Guards {
 		if ( ! $user instanceof WP_User || ! AgentID_Auth::is_agent_user( $user->ID ) ) {
 			return $allcaps;
 		}
-		$owner_id = (int) get_user_meta( $user->ID, 'agentid_owner_user_id', true );
+		// An agent account must never administer the site — no matter
+		// what its role says, and no matter what its owner can do. This
+		// deny is unconditional; the owner ceiling below only ever
+		// removes further capabilities.
+		$allcaps['manage_options'] = false;
+		$owner_id                  = (int) get_user_meta( $user->ID, 'agentid_owner_user_id', true );
 		if ( $owner_id <= 0 || $owner_id === (int) $user->ID ) {
-			// No recorded owner: the account keeps only what a fresh
-			// provisioned role would hold — never site administration.
-			unset( $allcaps['manage_options'] );
+			// No recorded owner: keep the account's role capabilities
+			// (site administration already denied above).
 			return $allcaps;
 		}
 		$owner = get_user_by( 'id', $owner_id );
@@ -233,7 +237,7 @@ class AgentID_Guards {
 							<code><?php echo esc_html( $linked_sub ); ?></code>
 							<p class="description"><?php echo esc_html__( 'This agent identity is linked to your account as its owner.', 'agent-sso-for-agentid' ); ?></p>
 						<?php else : ?>
-							<a class="button" href="<?php echo esc_url( agentid_sso_start_url( '', 'link' ) ); ?>"><?php echo esc_html__( 'Link an AgentID agent', 'agent-sso-for-agentid' ); ?></a>
+							<a class="button" href="<?php echo esc_url( add_query_arg( 'agentid_link_nonce', wp_create_nonce( 'agentid_link_start' ), agentid_sso_start_url( '', 'link' ) ) ); ?>"><?php echo esc_html__( 'Link an AgentID agent', 'agent-sso-for-agentid' ); ?></a>
 							<p class="description"><?php echo esc_html__( 'Signs you through AgentID once and records that agent as yours. The agent still gets its own account on this site — it never signs in as you.', 'agent-sso-for-agentid' ); ?></p>
 						<?php endif; ?>
 						<?php if ( isset( $_GET['agentid_linked'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- Confirmation banner only. ?>

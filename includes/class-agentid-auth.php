@@ -94,6 +94,7 @@ class AgentID_Auth {
 			'disabled'        => __( 'This agent account has been disabled by the site owner.', 'agent-sso-for-agentid' ),
 			'provision'       => __( 'An account could not be created for this agent.', 'agent-sso-for-agentid' ),
 			'link_no_user'    => __( 'Please sign in to your account first, then start linking again.', 'agent-sso-for-agentid' ),
+			'link_nonce'      => __( 'That linking link has expired. Please start again from your profile.', 'agent-sso-for-agentid' ),
 			'link_sub_in_use' => __( 'That agent is already linked to a different account.', 'agent-sso-for-agentid' ),
 		);
 	}
@@ -121,6 +122,14 @@ class AgentID_Auth {
 		if ( 'link' === $intent ) {
 			if ( ! is_user_logged_in() ) {
 				self::fail( 'link_no_user' );
+			}
+			// Starting a link flow must be the account holder's own
+			// intent: the profile button carries a nonce, verified
+			// here, so a cross-site request cannot start a flow in a
+			// signed-in user's browser.
+			$link_nonce = isset( $_GET['agentid_link_nonce'] ) ? sanitize_key( wp_unslash( $_GET['agentid_link_nonce'] ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- The value is a nonce, verified with wp_verify_nonce() immediately below and never output or stored.
+			if ( ! wp_verify_nonce( $link_nonce, 'agentid_link_start' ) ) {
+				self::fail( 'link_nonce' );
 			}
 			$link_user_id = get_current_user_id();
 		}
@@ -362,7 +371,7 @@ class AgentID_Auth {
 		if ( ! agentid_sso_get_option( 'link_by_owner_email', 1 ) ) {
 			return 0;
 		}
-		if ( empty( $claims['owner_email'] ) || empty( $claims['owner_email_verified'] ) || ( true !== $claims['owner_email_verified'] && 'true' !== $claims['owner_email_verified'] ) ) {
+		if ( empty( $claims['owner_email'] ) || ! is_string( $claims['owner_email'] ) || empty( $claims['owner_email_verified'] ) || ( true !== $claims['owner_email_verified'] && 'true' !== $claims['owner_email_verified'] ) ) {
 			return 0;
 		}
 		$owner = get_user_by( 'email', sanitize_email( $claims['owner_email'] ) );
@@ -380,9 +389,20 @@ class AgentID_Auth {
 	 * @return WP_User|WP_Error
 	 */
 	private static function provision_agent_user( array $claims ) {
-		$email = isset( $claims['email'] ) ? sanitize_email( $claims['email'] ) : '';
-		if ( '' === $email || ! is_email( $email ) ) {
-			return new WP_Error( 'no_email', 'Missing agent email.' );
+		$email          = '';
+		$email_verified = isset( $claims['email_verified'] ) && ( true === $claims['email_verified'] || 'true' === $claims['email_verified'] );
+		if ( $email_verified && isset( $claims['email'] ) && is_string( $claims['email'] ) ) {
+			$candidate = sanitize_email( $claims['email'] );
+			if ( is_email( $candidate ) ) {
+				$email = $candidate;
+			}
+		}
+		if ( '' === $email ) {
+			// The agent's email claim is absent or unverified: never
+			// present it as an established contact address. The account
+			// is keyed by the immutable subject, so a site-controlled,
+			// non-deliverable placeholder derived from the sub works.
+			$email = 'agentid-' . substr( hash( 'sha256', (string) $claims['sub'] ), 0, 16 ) . '@agentid.invalid';
 		}
 		if ( email_exists( $email ) ) {
 			// Never sign an agent in to an existing account by email,
@@ -450,17 +470,17 @@ class AgentID_Auth {
 	 */
 	public static function refresh_agent_meta( $user_id, array $claims ) {
 		update_user_meta( $user_id, 'agentid_sub', (string) $claims['sub'] );
-		if ( isset( $claims['actor_type'] ) ) {
-			update_user_meta( $user_id, 'agentid_actor_type', sanitize_text_field( (string) $claims['actor_type'] ) );
+		if ( isset( $claims['actor_type'] ) && is_string( $claims['actor_type'] ) ) {
+			update_user_meta( $user_id, 'agentid_actor_type', sanitize_text_field( $claims['actor_type'] ) );
 		}
-		if ( ! empty( $claims['owner_sub'] ) ) {
-			update_user_meta( $user_id, 'agentid_owner_sub', sanitize_text_field( (string) $claims['owner_sub'] ) );
+		if ( ! empty( $claims['owner_sub'] ) && is_string( $claims['owner_sub'] ) ) {
+			update_user_meta( $user_id, 'agentid_owner_sub', sanitize_text_field( $claims['owner_sub'] ) );
 		}
-		if ( ! empty( $claims['owner_email'] ) ) {
+		if ( ! empty( $claims['owner_email'] ) && is_string( $claims['owner_email'] ) ) {
 			update_user_meta( $user_id, 'agentid_owner_email', sanitize_email( $claims['owner_email'] ) );
 		}
-		if ( ! empty( $claims['owner_name'] ) ) {
-			update_user_meta( $user_id, 'agentid_owner_name', sanitize_text_field( (string) $claims['owner_name'] ) );
+		if ( ! empty( $claims['owner_name'] ) && is_string( $claims['owner_name'] ) ) {
+			update_user_meta( $user_id, 'agentid_owner_name', sanitize_text_field( $claims['owner_name'] ) );
 		}
 		$owner_id = self::resolve_owner_id( $claims );
 		if ( $owner_id > 0 && (int) $user_id !== $owner_id ) {

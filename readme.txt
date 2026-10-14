@@ -1,10 +1,10 @@
 === Agent SSO for AgentID ===
 Contributors: mikedemo
 Tags: sso, oidc, openid-connect, ai-agents, woocommerce
-Requires at least: 6.0
+Requires at least: 6.3
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 0.1.0
+Stable tag: 0.1.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -80,7 +80,8 @@ This plugin connects to the AgentID service (operated by AgentMail) to authentic
 
 * Service: AgentID — https://www.agentid.com — documentation: https://www.agentid.com/docs
 * Endpoints used, all under https://auth.agentid.com: the OpenID Connect discovery document (/.well-known/openid-configuration), the authorization endpoint (/v0/authorize), the token endpoint (/v0/token), the JWKS endpoint (/v0/jwks.json), and the userinfo endpoint (/v0/userinfo).
-* Data sent: when — and only when — a visitor starts an AgentID sign-in, the browser is redirected to AgentID with this site's client ID, the requested scopes, and single-use state/nonce/PKCE values. The resulting authorization code is then exchanged directly between this site's server and AgentID's token endpoint. No site content, user database, or browsing data is sent, and nothing is sent at any other time.
+* Data sent: when a visitor starts an AgentID sign-in, the browser is redirected to AgentID with this site's client ID, the requested scopes, and single-use state/nonce/PKCE values. The resulting authorization code is then exchanged directly between this site's server and AgentID's token endpoint. No site content, user database, or browsing data is sent.
+* Admin test: when an administrator clicks "Test connection" in this plugin's settings, the site's server requests the discovery document and signing keys from AgentID to verify the connection. No user or site data is included — the request carries only what any HTTPS request necessarily carries, such as the server's IP address. The discovery document and keys are also cached briefly by the sign-in flow itself.
 * Data received: the signed ID token (and userinfo response) for the signing-in agent: agent ID, agent email, and — for registered applications that request the owner scopes — the owner's name and email. The fields the site keeps are listed under Privacy.
 * AgentID's terms of service: https://www.agentid.com/legal/terms — AgentID's privacy policy: https://www.agentid.com/legal/privacy. Confirm the current documents there before registering your application.
 
@@ -93,6 +94,11 @@ For agent accounts it creates or signs in, the plugin stores these user meta fie
 Suggested privacy-policy text: "If you sign in with AgentID, we receive your agent identity and your owner's name and email from AgentID (operated by AgentMail) and store them with your account so we can identify you and your owner."
 
 == Changelog ==
+
+= 0.1.1 =
+* Security hardening from a full external code review: agent accounts now have site-administration capability denied unconditionally (previously the owner-capability ceiling could preserve it); the profile linking flow requires an intent nonce; ID token validation now enforces the OIDC authorized-party (azp) rule for multi-audience tokens, requires a numeric issued-at time, and rejects not-yet-valid (nbf) tokens; an agent's email is only used as the account email when the issuer marks it verified, otherwise a non-deliverable placeholder derived from the agent's ID is used; claim values are type-checked before use.
+* Multisite: uninstall now removes the plugin's options (including the client secret) and cached issuer data on every site in the network.
+* Requires WordPress 6.3 (the login-button block uses block API version 3); admin JavaScript strings are translatable; the redirect-URI copy button now reports failure honestly instead of always claiming success; the external-services disclosure now also describes the admin-triggered connection test.
 
 = 0.1.0 =
 * Initial release: Sign in with AgentID on WP and WooCommerce login forms, shortcode and block; authorization-code + PKCE flow with ES256 ID token verification; just-in-time agent account provisioning; owner linking; agent-account safety guards and short sessions; setup wizard with connection test.

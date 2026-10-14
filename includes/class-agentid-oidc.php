@@ -267,15 +267,45 @@ class AgentID_OIDC {
 		if ( empty( $claims['iss'] ) || AGENTID_ISSUER !== $claims['iss'] ) {
 			return new WP_Error( 'agentid_claim_iss', __( 'ID token issuer mismatch.', 'agent-sso-for-agentid' ) );
 		}
-		$audiences = isset( $claims['aud'] ) ? (array) $claims['aud'] : array();
+		$audiences = array();
+		if ( isset( $claims['aud'] ) ) {
+			$audiences = is_array( $claims['aud'] ) ? array_values( $claims['aud'] ) : array( $claims['aud'] );
+			foreach ( $audiences as $audience_value ) {
+				if ( ! is_string( $audience_value ) ) {
+					return new WP_Error( 'agentid_claim_aud', __( 'ID token audience is malformed.', 'agent-sso-for-agentid' ) );
+				}
+			}
+		}
 		if ( ! in_array( $client_id, $audiences, true ) ) {
 			return new WP_Error( 'agentid_claim_aud', __( 'ID token audience mismatch.', 'agent-sso-for-agentid' ) );
 		}
-		if ( empty( $claims['exp'] ) || (int) $claims['exp'] < $now - self::LEEWAY ) {
+		// OIDC Core 3.1.3.7: with multiple audiences the authorized
+		// party (azp) must be present and must be this client; whenever
+		// azp is present at all it must match.
+		if ( isset( $claims['azp'] ) && ( ! is_string( $claims['azp'] ) || $client_id !== $claims['azp'] ) ) {
+			return new WP_Error( 'agentid_claim_azp', __( 'ID token authorized party mismatch.', 'agent-sso-for-agentid' ) );
+		}
+		if ( count( $audiences ) > 1 && ! isset( $claims['azp'] ) ) {
+			return new WP_Error( 'agentid_claim_azp', __( 'ID token for multiple audiences has no authorized party.', 'agent-sso-for-agentid' ) );
+		}
+		if ( ! isset( $claims['exp'] ) || ! is_numeric( $claims['exp'] ) || (int) $claims['exp'] < $now - self::LEEWAY ) {
 			return new WP_Error( 'agentid_claim_exp', __( 'ID token has expired.', 'agent-sso-for-agentid' ) );
 		}
-		if ( ! empty( $claims['iat'] ) && (int) $claims['iat'] > $now + 300 ) {
+		// iat is required on ID tokens (OIDC Core 2); it must be a
+		// number and must not sit beyond the allowed clock skew.
+		if ( ! isset( $claims['iat'] ) || ! is_numeric( $claims['iat'] ) ) {
+			return new WP_Error( 'agentid_claim_iat', __( 'ID token has no valid issued-at time.', 'agent-sso-for-agentid' ) );
+		}
+		if ( (int) $claims['iat'] > $now + 300 ) {
 			return new WP_Error( 'agentid_claim_iat', __( 'ID token was issued in the future.', 'agent-sso-for-agentid' ) );
+		}
+		if ( isset( $claims['nbf'] ) ) {
+			if ( ! is_numeric( $claims['nbf'] ) ) {
+				return new WP_Error( 'agentid_claim_nbf', __( 'ID token not-before time is malformed.', 'agent-sso-for-agentid' ) );
+			}
+			if ( (int) $claims['nbf'] > $now + self::LEEWAY ) {
+				return new WP_Error( 'agentid_claim_nbf', __( 'ID token is not valid yet.', 'agent-sso-for-agentid' ) );
+			}
 		}
 		if ( '' !== $nonce && ( empty( $claims['nonce'] ) || ! hash_equals( $nonce, (string) $claims['nonce'] ) ) ) {
 			return new WP_Error( 'agentid_claim_nonce', __( 'ID token nonce mismatch.', 'agent-sso-for-agentid' ) );

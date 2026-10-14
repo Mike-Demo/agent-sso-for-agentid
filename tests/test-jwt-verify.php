@@ -181,6 +181,55 @@ $token2  = "$head2.$body2." . AgentID_OIDC::b64url_encode( der_to_raw_sig( $der2
 $result  = AgentID_OIDC::verify_id_token( $token2, $jwks, $client_id, $nonce );
 check( 'unknown kid rejected', is_wp_error( $result ) && $result->get_error_code() === 'agentid_jwt_kid' );
 
+// 10. Multiple audiences without azp rejected.
+$multi_claims           = $base;
+$multi_claims['aud']    = array( $client_id, 'someone-else' );
+$multi_token            = make_token( $key_res, $kid, $multi_claims );
+$result                 = AgentID_OIDC::verify_id_token( $multi_token, $jwks, $client_id, $nonce );
+check( 'multi-audience without azp rejected', is_wp_error( $result ) && $result->get_error_code() === 'agentid_claim_azp' );
+
+// 11. Multiple audiences with correct azp accepted.
+$multi_ok_claims        = $multi_claims;
+$multi_ok_claims['azp'] = $client_id;
+$multi_ok_token         = make_token( $key_res, $kid, $multi_ok_claims );
+$result                 = AgentID_OIDC::verify_id_token( $multi_ok_token, $jwks, $client_id, $nonce );
+check( 'multi-audience with matching azp accepted', is_array( $result ) );
+
+// 12. Multiple audiences with wrong azp rejected.
+$multi_bad_claims        = $multi_claims;
+$multi_bad_claims['azp'] = 'someone-else';
+$multi_bad_token         = make_token( $key_res, $kid, $multi_bad_claims );
+$result                  = AgentID_OIDC::verify_id_token( $multi_bad_token, $jwks, $client_id, $nonce );
+check( 'multi-audience with wrong azp rejected', is_wp_error( $result ) && $result->get_error_code() === 'agentid_claim_azp' );
+
+// 13. Missing iat rejected (iat is required on ID tokens).
+$no_iat = $base;
+unset( $no_iat['iat'] );
+$no_iat_token = make_token( $key_res, $kid, $no_iat );
+$result       = AgentID_OIDC::verify_id_token( $no_iat_token, $jwks, $client_id, $nonce );
+check( 'missing iat rejected', is_wp_error( $result ) && $result->get_error_code() === 'agentid_claim_iat' );
+
+// 14. Future nbf rejected.
+$nbf_claims         = $base;
+$nbf_claims['nbf']  = time() + 3600;
+$nbf_token          = make_token( $key_res, $kid, $nbf_claims );
+$result             = AgentID_OIDC::verify_id_token( $nbf_token, $jwks, $client_id, $nonce );
+check( 'future nbf rejected', is_wp_error( $result ) && $result->get_error_code() === 'agentid_claim_nbf' );
+
+// 15. Non-numeric iat rejected.
+$bad_iat            = $base;
+$bad_iat['iat']     = 'yesterday-ish';
+$bad_iat_token      = make_token( $key_res, $kid, $bad_iat );
+$result             = AgentID_OIDC::verify_id_token( $bad_iat_token, $jwks, $client_id, $nonce );
+check( 'non-numeric iat rejected', is_wp_error( $result ) && $result->get_error_code() === 'agentid_claim_iat' );
+
+// 16. Malformed (array-typed) audience value rejected.
+$bad_aud          = $base;
+$bad_aud['aud']   = array( array( 'nested' ) );
+$bad_aud_token    = make_token( $key_res, $kid, $bad_aud );
+$result           = AgentID_OIDC::verify_id_token( $bad_aud_token, $jwks, $client_id, $nonce );
+check( 'malformed audience rejected', is_wp_error( $result ) && $result->get_error_code() === 'agentid_claim_aud' );
+
 // 9. Real live AgentID JWKS shape: PEM builder handles any valid P-256 JWK.
 $live_jwk = $jwks['keys'][0];
 $pem      = AgentID_OIDC::jwk_ec_to_pem( $live_jwk );

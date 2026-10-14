@@ -14,9 +14,30 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
 	exit;
 }
 
-delete_option( 'agentid_sso_options' );
-delete_transient( 'agentid_sso_discovery' );
-delete_transient( 'agentid_sso_jwks' );
+$agentid_cleanup_site = static function () {
+	delete_option( 'agentid_sso_options' );
+	delete_transient( 'agentid_sso_discovery' );
+	delete_transient( 'agentid_sso_jwks' );
+};
+
+if ( is_multisite() ) {
+	// Options (including the client secret) and the cached issuer
+	// data are per-site on multisite: visit every blog so nothing is
+	// left behind in another site's options table.
+	$agentid_site_ids = get_sites(
+		array(
+			'fields' => 'ids',
+			'number' => 0,
+		)
+	);
+	foreach ( $agentid_site_ids as $agentid_site_id ) {
+		switch_to_blog( $agentid_site_id );
+		$agentid_cleanup_site();
+		restore_current_blog();
+	}
+} else {
+	$agentid_cleanup_site();
+}
 
 $agentid_meta_keys = array(
 	'agentid_is_agent',

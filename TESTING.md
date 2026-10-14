@@ -92,3 +92,39 @@ binds — no submission made yet):
 - [ ] Still outstanding for submission: AgentMail's written OK to the
       AgentID name/slug, and the Copilot full code review already
       commissioned on GitHub issue #1.
+
+v0.1.1 (2026-10-14) — fixes from the Copilot full review (GitHub
+issue #1 / PR #2), each verified after the change:
+
+- [x] Capability ceiling now hard-denies `manage_options` for agent
+      accounts before the owner intersection (the review's one High).
+- [x] Profile link flow requires the `agentid_link_start` nonce —
+      verified live in Playground: the profile button carries it,
+      the flow starts with it, and a nonce-less request fails closed
+      to the login page with the `link_nonce` error.
+- [x] OIDC verifier: azp enforced (required for multi-audience
+      tokens, must match whenever present), iat required and numeric,
+      nbf validated. JWT test suite extended 9 → 16 cases, all pass.
+- [x] Agent email used as the account email only when the issuer
+      marks it verified; otherwise a non-deliverable placeholder
+      derived from the agent's `sub` is used. Claim values are
+      type-checked before sanitizers everywhere they are consumed.
+- [x] Uninstall iterates every site on multisite, removing options
+      and issuer-cache transients per blog.
+- [x] Minimum WordPress raised to 6.3 (block API v3); admin JS
+      strings localized; copy button reports clipboard failure
+      honestly (localized strings verified present on the settings
+      page).
+- [x] readme external-services disclosure now covers the
+      admin-triggered connection test.
+- [x] Re-verified in Playground on a fresh site: plugin activates,
+      settings renders as 0.1.1, Test Connection succeeds live,
+      Plugin Check re-run on the affected checks is clean for the
+      shipped file set. Note: forced (uncached) fetches from
+      Playground in Cane's VM fail intermittently in bursts — the
+      egress proxy mangles some responses; the cached path and fresh
+      instances work, and an instrumented run showed clean HTTP 200
+      responses with correct bodies. Environment flakiness, not a
+      plugin defect.
+- [x] `tests/playground-blueprint.json` is now actually tracked in
+      the repo (the review correctly noted it was missing).

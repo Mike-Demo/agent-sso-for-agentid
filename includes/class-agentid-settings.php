@@ -151,9 +151,13 @@ class AgentID_Settings {
 			'agentid-sso-admin',
 			'agentidSsoAdmin',
 			array(
-				'ajaxUrl' => admin_url( 'admin-ajax.php' ),
-				'nonce'   => wp_create_nonce( 'agentid_test_connection' ),
-				'testing' => __( 'Testing…', 'agent-sso-for-agentid' ),
+				'ajaxUrl'    => admin_url( 'admin-ajax.php' ),
+				'nonce'      => wp_create_nonce( 'agentid_test_connection' ),
+				'testing'    => __( 'Testing…', 'agent-sso-for-agentid' ),
+				'copied'     => __( 'Copied', 'agent-sso-for-agentid' ),
+				'copy'       => __( 'Copy', 'agent-sso-for-agentid' ),
+				'copyFailed' => __( 'Copy failed — select the text and copy it manually.', 'agent-sso-for-agentid' ),
+				'testFailed' => __( 'Test failed.', 'agent-sso-for-agentid' ),
 			)
 		);
 	}
