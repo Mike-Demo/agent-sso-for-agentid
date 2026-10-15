@@ -14,7 +14,7 @@ below apply once the review concludes.
 | Plugin zip | `agentic-agent-sso-0.1.4.zip` — folder `agentic-agent-sso/`, built per `.distignore` (no dev files, no `.wordpress-org/`) |
 | Version / stable tag | 0.1.4 |
 | License | GPLv2 (LICENSE file included) |
-| Plugin Check (official, v2.1.0) | shipped file set: 0 errors / 0 warnings |
+| Plugin Check (official, v2.1.0) | 0 errors / 0 warnings on the v0.1.2-era package; a post-submission run flagged one readme warning (0.1.3 upgrade notice 305 chars, limit 300) — fixed to 255 chars, see TESTING.md |
 | PHPCS (WPCS + PHPCompatibilityWP) | 0 errors / 0 warnings |
 | Code reviews | Copilot full review (v0.1.1), Copilot Auto quality review (v0.1.3), Wonder-model review (v0.1.4) — see `docs/code-review/`; all findings fixed or dispositioned |
 | Live verification | Full real-agent AgentID sign-in verified end-to-end on v0.1.1 and again on v0.1.4 (see TESTING.md) |

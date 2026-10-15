@@ -115,7 +115,7 @@ Suggested privacy-policy text: "If you sign in with AgentID, we receive your age
 Hardening release: identity data from the userinfo endpoint is now merged through a type-checked whitelist so it can never override verified token claims, and a malformed discovery document fails cleanly instead of erroring. Recommended for all sites.
 
 = 0.1.3 =
-Quality fixes from an external review: sign-in now works on installs where the WordPress core path differs from the home path, credentials with special characters survive saving and token exchange, and agent accounts retained across an uninstall reconnect on their next sign-in. Recommended for all sites.
+Quality fixes from an external review: sign-in works where the core path differs from the home path, credentials with special characters survive saving and token exchange, and retained agent accounts reconnect after a reinstall. Recommended for all sites.
 
 = 0.1.2 =
 Renamed to Agentic Agent SSO. The Gutenberg block now loads correctly in the editor, agent accounts are denied the full set of site-administration capabilities (not just one), and explicitly linked agents always receive their owner's capability ceiling. Recommended for all sites.
